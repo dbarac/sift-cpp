@@ -5,12 +5,10 @@
 
 int main(int argc, char *argv[])
 {
-	//int width, height, bpp;
-	//unsigned char* rgb = stbi_load("Rainier2.png", &width, &height, &bpp, 0);
-	//std::cout << width << " " <<  height << " " << bpp;
-	//stbi_image_free(rgb);
     Image img = Image("plans2.png");
     std::cout << img.height << " " << img.width << " " <<  img.channels;
-    img.save("plans2-moje.jpg");
+    Image gaussian = make_gaussian_filter(3);
+    Image filtered = convolve(img, gaussian, true);
+    filtered.save("filtered.jpg");
 	return 0;
 }
