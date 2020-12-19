@@ -31,9 +31,9 @@ Image make_gy_filter()
     return filter;
 }
 
-Image make_gaussian_filter(float sigma) //TODO: make total size Image member var
+Image make_gaussian_filter(float sigma)
 {
-	int size = std::ceil(6 * sigma);
+    int size = std::ceil(6 * sigma);
     if (size % 2 == 0)
         size++;
     int center = size / 2;

@@ -154,7 +154,7 @@ void Image::clamp()
     }
 }
 
-Image Image::resize(int new_w, int new_h)
+Image Image::resize(int new_w, int new_h) const
 {
     Image resized(new_w, new_h, this->channels);
 
@@ -180,7 +180,7 @@ inline float map_coordinate(float new_max, float current_max, float coord)
 
 inline float bilinear_interpolate(const Image& img, float x, float y, int c) //const image
 {
-	float p1, p2, p3, p4, q1, q2;
+    float p1, p2, p3, p4, q1, q2;
     float x_floor = std::floor(x), x_ceil = std::ceil(x);
     float y_floor = std::floor(y), y_ceil = std::ceil(y);
     p1 = img.get_pixel(x_floor, y_floor, c);
@@ -191,6 +191,22 @@ inline float bilinear_interpolate(const Image& img, float x, float y, int c) //c
     q2 = (y_ceil - y)*p2 + (y - y_floor)*p4;
     return (x_ceil - x)*q1 + (x - x_floor)*q2;
 }
+ 
+Image rgb_to_grayscale(const Image& img)
+{
+    assert(img.channels == 3);
+    Image gray(img.width, img.height, 1);
+    for (int x = 0; x < img.width; x++) {
+        for (int y = 0; y < img.height; y++) {
+            float red, green, blue;
+            red = img.get_pixel(x, y, 0);
+            green = img.get_pixel(x, y, 1);
+            blue = img.get_pixel(x, y, 2);
+            gray.set_pixel(x, y, 0, 0.299*red + 0.587*green + 0.114*blue);
+        }
+    }
+    return gray;
+}
 
 Image convolve(const Image& img, const Image& filter, bool preserve)
 {
@@ -199,7 +215,6 @@ Image convolve(const Image& img, const Image& filter, bool preserve)
     if (preserve) //preserve number of channels after filtering
         new_c = img.channels;
     Image filtered(img.width, img.height, new_c);
-
     for (int x = 0; x < img.width; x++) {
         for (int y = 0; y < img.height; y++) {
             for (int c = 0; c < img.channels; c++) {
