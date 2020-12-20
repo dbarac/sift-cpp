@@ -43,6 +43,7 @@ Image::Image(int w, int h, int c)
     width = w;
     height = h;
     channels = c;
+    size = width * height * channels;
     data = new float[w*h*c]();
 }
 
@@ -51,13 +52,14 @@ Image::~Image()
     delete[] this->data;
 }
 
-Image::Image(const Image& other) 
-    :data {new float[other.size]},
-     width {other.width},
+Image::Image(const Image& other)
+    :width {other.width},
      height {other.height},
      channels {other.channels},
-     size {other.size}
+     size {other.size},
+     data {new float[other.size]}
 {
+    std::cout << "copy constructor\n";
     for (int i = 0; i < size; i++)
         data[i] = other.data[i];
 }
@@ -65,29 +67,32 @@ Image::Image(const Image& other)
 Image& Image::operator=(const Image& other)
 {
     delete[] data;
-    data = new float[other.size];
-    for (int i = 0; i < size; i++)
-        data[i] = other.data[i];
+    std::cout << "copy assignment\n";
     width = other.width;
     height = other.height;
     channels = other.channels;
     size = other.size;
+    data = new float[other.size];
+    for (int i = 0; i < other.size; i++)
+        data[i] = other.data[i];
     return *this;
 }
 
 Image::Image(Image&& other)
-    :data {other.data},
-     width {other.width},
+    :width {other.width},
      height {other.height},
      channels {other.channels},
-     size {other.size}
+     size {other.size},
+     data {other.data}
 {
+    std::cout << "move constructor\n";
     other.data = nullptr;
-    other.size = 0;    
+    other.size = 0;
 }
 
 Image& Image::operator=(Image&& other)
 {
+    std::cout << "move assignment\n";
     delete[] data;
     data = other.data;
     width = other.width;
@@ -133,12 +138,16 @@ void Image::set_pixel(int x, int y, int c, float val)
 float Image::get_pixel(int x, int y, int c) const
 {
     if (x < 0)
+        //return 0.0f;
         x = 0;
     if (x >= width)
+        //return 0.f;
         x = width - 1;
     if (y < 0)
+        //return 0.f;
         y = 0;
     if (y >= height)
+        //return 0.0f;
         y = height - 1;
     return data[c*width*height + y*width + x];
 }
@@ -154,16 +163,19 @@ void Image::clamp()
     }
 }
 
-Image Image::resize(int new_w, int new_h) const
+Image Image::resize(int new_w, int new_h, Interpolation interp) const
 {
     Image resized(new_w, new_h, this->channels);
-
+    float value;
     for (int x = 0; x < new_w; x++) {
         for (int y = 0; y < new_h; y++) {
             for (int c = 0; c < resized.channels; c++) {
                 float old_x = map_coordinate(this->width, new_w, x);
                 float old_y = map_coordinate(this->height, new_h, y);
-                float value = bilinear_interpolate(*this, old_x, old_y, c);
+                if (interp == Interpolation::BILINEAR)
+                    value = bilinear_interpolate(*this, old_x, old_y, c);
+                else if (interp == Interpolation::NEAREST)
+                    value = nn_interpolate(*this, old_x, old_y, c);
                 resized.set_pixel(x, y, c, value);
             }
         }
@@ -191,7 +203,12 @@ inline float bilinear_interpolate(const Image& img, float x, float y, int c) //c
     q2 = (y_ceil - y)*p2 + (y - y_floor)*p4;
     return (x_ceil - x)*q1 + (x - x_floor)*q2;
 }
- 
+
+float nn_interpolate(const Image& img, float x, float y, int c)
+{
+    return img.get_pixel(std::round(x), std::round(y), c);
+}
+
 Image rgb_to_grayscale(const Image& img)
 {
     assert(img.channels == 3);

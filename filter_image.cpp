@@ -31,7 +31,7 @@ Image make_gy_filter()
     return filter;
 }
 
-Image make_gaussian_filter(float sigma)
+Image make_gaussian_filter(float sigma, bool normalize) //TODO: rename
 {
     int size = std::ceil(6 * sigma);
     if (size % 2 == 0)
@@ -44,10 +44,12 @@ Image make_gaussian_filter(float sigma)
             filter.set_pixel(center+x, center+y, 0, val);
         }
     }
-    float sum;
-    for (int i = 0; i < size*size; i++)
-        sum += filter.data[i];
-    for (int i = 0; i < size*size; i++)
-        filter.data[i] /= sum;
+    if (normalize) {
+        float sum;
+        for (int i = 0; i < size*size; i++)
+            sum += filter.data[i];
+        for (int i = 0; i < size*size; i++)
+            filter.data[i] /= sum;
+    }
     return filter;
 }
