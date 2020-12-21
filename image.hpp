@@ -37,6 +37,6 @@ Image rgb_to_grayscale(const Image& img);
 Image convolve(const Image& img, const Image& filter, bool preserve);
 Image make_gx_filter();
 Image make_gy_filter();
-Image make_gaussian_filter(float sigma, bool normalize = false);
+Image make_gaussian_filter(float sigma, bool normalize = true);
 
 #endif

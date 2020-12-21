@@ -8,16 +8,13 @@
 
 namespace sift {
 
-ScaleSpacePyramid generate_scale_space_pyramid(const Image& img, float sigma) //TODO: rename sigma -> base_sigma
+ScaleSpacePyramid generate_scale_space_pyramid(const Image& img, float base_sigma)
 {
     // assume initial sigma is 1.0 (after resizing) and smooth
     // the image with sigma_diff to reach requried smoothing
-    Image base_img = img;//rgb_to_grayscale(img);
-    base_img = base_img.resize(img.width*2, img.height*2, Interpolation::BILINEAR);
-    std::cout << "resized base image\n";
-    float sigma_diff = std::sqrt(sigma*sigma - 1.0f);
-    base_img = convolve(base_img, make_gaussian_filter(sigma_diff), true);
-    std::cout << "convolved base image\n";
+    Image base_img = img.resize(img.width*2, img.height*2, Interpolation::BILINEAR);
+    float sigma_diff = std::sqrt(base_sigma*base_sigma - 1.0f);
+    base_img = convolve(base_img, make_gaussian_filter(sigma_diff), false);
 
     int num_octaves = 4, scales_per_octave = 3;
     int imgs_per_octave = scales_per_octave + 3;
@@ -25,21 +22,16 @@ ScaleSpacePyramid generate_scale_space_pyramid(const Image& img, float sigma) //
     // determine all sigma values for all
     // and generate gaussian kernels for all sigmas
     float k = std::pow(2, 1.0/scales_per_octave);
-    std::vector<float> sigma_vals {sigma};
+    std::vector<float> sigma_vals {base_sigma};
     for (int i = 1; i < imgs_per_octave; i++) {
-        float sigma_prev = sigma * std::pow(k, i-1);
+        float sigma_prev = base_sigma * std::pow(k, i-1);
         float sigma_total = k * sigma_prev;
         sigma_vals.push_back(std::sqrt(sigma_total*sigma_total - sigma_prev*sigma_prev));
     }
-
-    for (auto s : sigma_vals)
-        std::cout << s << "\n";
     std::vector<Image> gaussian_kernels;
     for (int i = 1; i < sigma_vals.size(); i++) {
         gaussian_kernels.push_back(make_gaussian_filter(sigma_vals[i]));
-        std::cout << i << " " <<  gaussian_kernels.back().width << "\n";
     }
-    std::cout << "generated " << gaussian_kernels.size() << " kernels\n";
 
     // create a scale space pyramid of gaussian images
     // images in each octave are 2x smaller than in the previous
@@ -51,19 +43,13 @@ ScaleSpacePyramid generate_scale_space_pyramid(const Image& img, float sigma) //
     for (int i = 0; i < num_octaves; i++) {
         pyramid.octaves[i].reserve(imgs_per_octave);
         pyramid.octaves[i].push_back(std::move(base_img));
-        std::cout << "no\n";
         for (const Image& kernel : gaussian_kernels) {
             const Image& prev_img = pyramid.octaves[i].back();
-            std::cout << prev_img.size << "\n";
-            pyramid.octaves[i].push_back(convolve(prev_img, kernel, true));//tmp);
-            pyramid.octaves[i].back().save("tmp.jpg");
-            std::cout << "ker\n";
-            sleep(1);
+            pyramid.octaves[i].push_back(convolve(prev_img, kernel, false));
         }
         // prepare base image for next octave
         base_img = pyramid.octaves[i][imgs_per_octave-3]; //TODO reference, avoid copy
-        base_img.save("test.jpg");
-        base_img = base_img.resize(base_img.width/2, base_img.height/2, Interpolation::NEAREST); //TODO: nearest neighbour
+        base_img = base_img.resize(base_img.width/2, base_img.height/2, Interpolation::NEAREST);
     }
     return pyramid;
 }
@@ -83,9 +69,6 @@ DoGPyramid generate_dog_pyramid(const ScaleSpacePyramid& img_pyramid)
             for (int pix_idx = 0; pix_idx < diff.size; pix_idx++) {
                 diff.data[pix_idx] -= img_pyramid.octaves[i][j-1].data[pix_idx];
             }
-            diff.clamp();
-            //diff.save("tmp.jpg");
-            //sleep(1);
             dog_pyramid.octaves[i].push_back(diff);
         }
     }

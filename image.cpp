@@ -59,7 +59,7 @@ Image::Image(const Image& other)
      size {other.size},
      data {new float[other.size]}
 {
-    std::cout << "copy constructor\n";
+    //std::cout << "copy constructor\n";
     for (int i = 0; i < size; i++)
         data[i] = other.data[i];
 }
@@ -67,7 +67,7 @@ Image::Image(const Image& other)
 Image& Image::operator=(const Image& other)
 {
     delete[] data;
-    std::cout << "copy assignment\n";
+    //std::cout << "copy assignment\n";
     width = other.width;
     height = other.height;
     channels = other.channels;
@@ -85,14 +85,14 @@ Image::Image(Image&& other)
      size {other.size},
      data {other.data}
 {
-    std::cout << "move constructor\n";
+    //std::cout << "move constructor\n";
     other.data = nullptr;
     other.size = 0;
 }
 
 Image& Image::operator=(Image&& other)
 {
-    std::cout << "move assignment\n";
+    //std::cout << "move assignment\n";
     delete[] data;
     data = other.data;
     width = other.width;
