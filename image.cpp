@@ -1,5 +1,6 @@
 #include <cmath>
 #include <iostream>
+#include <cassert>
 #include "image.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -199,9 +200,9 @@ inline float bilinear_interpolate(const Image& img, float x, float y, int c) //c
     p2 = img.get_pixel(x_ceil, y_floor, c);
     p3 = img.get_pixel(x_floor, y_ceil, c);
     p4 = img.get_pixel(x_ceil, y_ceil, c);
-    q1 = (y_ceil - y)*p1 + (y - y_floor)*p3;
-    q2 = (y_ceil - y)*p2 + (y - y_floor)*p4;
-    return (x_ceil - x)*q1 + (x - x_floor)*q2;
+    q1 = (y_ceil-y)*p1 + (y-y_floor)*p3;
+    q2 = (y_ceil-y)*p2 + (y-y_floor)*p4;
+    return (x_ceil-x)*q1 + (x-x_floor)*q2;
 }
 
 float nn_interpolate(const Image& img, float x, float y, int c)

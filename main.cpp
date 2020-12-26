@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include "sift.hpp"
 #include <chrono>
-
+#include "matrix.hpp"
 
 int main(int argc, char *argv[])
 {
@@ -21,6 +21,19 @@ int main(int argc, char *argv[])
     Image filtered = convolve(img, gaussian, true);
     filtered.save("filtered.jpg");
     */
+    mat::Matrix mml(4,4);
+    mml.data = {
+        1, 0, 2, 0,
+        1, 1, 0, 0,
+        1, 2, 0, 1,
+        1, 1, 1, 1
+    };
+
+    mat::Matrix m_inv = mml.invert();
+    mat::Matrix res = mat::mul(mml, m_inv);
+    mat::print(res);
+    //std::exit(0);
+    //std::cout << m.rows << "\n";
     Image img("imgs/box.png");
     /*Image proc = img.resize(img.width*2, img.height*2);
     float sigmas[] = {1.248, 1.22627, 1.545, 1.94659, 2.45225, 3.09};
