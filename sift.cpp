@@ -75,4 +75,50 @@ DoGPyramid generate_dog_pyramid(const ScaleSpacePyramid& img_pyramid)
     return dog_pyramid;
 }
 
+bool point_is_extremum(const Image& img, const Image& prev, const Image& next, int x, int y)
+{
+    bool is_min = true, is_max = true;
+    float val = img.get_pixel(x, y, 0), neighbor;
+
+    for (int dx : {-1,0,1}) {
+        for (int dy : {-1,0,1}) {
+            neighbor = prev.get_pixel(x+dx, y+dy, 0);
+            if (neighbor > val) is_max = false;
+            if (neighbor < val) is_min = false;
+
+            neighbor = next.get_pixel(x+dx, y+dy, 0);
+            if (neighbor > val) is_max = false;
+            if (neighbor < val) is_min = false;
+
+            if (dx != 0 || dy != 0) {
+                neighbor = img.get_pixel(x+dx, y+dy, 0);
+                if (neighbor > val) is_max = false;
+                if (neighbor < val) is_min = false;
+            }
+        }
+    }
+    return is_max || is_min;
+}
+
+std::vector<Keypoint> find_scalespace_extrema(const DoGPyramid& dog_pyramid)
+{
+    std::vector<Keypoint> extrema;
+    for (int i = 0; i < dog_pyramid.num_octaves; i++) {
+        for (int j = 1; j < dog_pyramid.imgs_per_octave-1; j++) {
+            const Image& img = dog_pyramid.octaves[i][j];
+            const Image& prev = dog_pyramid.octaves[i][j-1];
+            const Image& next = dog_pyramid.octaves[i][j+1];
+            for (int x = 1; x < img.width-1; x++) {
+                for (int y = 1; y < img.height-1; y++) {
+                    if (point_is_extremum(img, prev, next, x, y)) {
+                        extrema.push_back({x, y, i}); //TODO: add sigma to keypoint struct
+                    }
+                }
+            }
+        }
+    }
+    std::cout << "num extrema: " << extrema.size() << "\n";
+    return extrema;
+}
+
 } //namespace sift
