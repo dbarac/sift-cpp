@@ -226,6 +226,24 @@ Image rgb_to_grayscale(const Image& img)
     return gray;
 }
 
+void draw_point(Image& img, int x, int y)
+{
+    for (int i = x-3; i <= x+3; i++) {
+        for (int j = y-3; j <= y+3; j++) {
+            if (i < 0 || i >= img.width) continue;
+            if (j < 0 || j >= img.height) continue;
+            //std::cout << i << " " << j << "\n";
+            if (img.channels == 3) {
+                img.set_pixel(i, j, 0, 1.f);
+                img.set_pixel(i, j, 1, 0.f);
+                img.set_pixel(i, j, 2, 0.f);
+            } else {
+                img.set_pixel(i, j, 0, 1.f);
+            }
+        }
+    }
+}
+
 Image convolve(const Image& img, const Image& filter, bool preserve)
 {
     assert(filter.channels == img.channels || filter.channels == 1);
