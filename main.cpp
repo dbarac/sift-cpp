@@ -51,12 +51,13 @@ int main(int argc, char *argv[])
     std::cout << "Time difference (sec) = "
               <<  (std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()) /1000000.0  <<std::endl;
 	
+    Image rgb = grayscale_to_rgb(img);
     int out_of_bounds = 0;
     for (auto& kp : keypoints) {
+        draw_point(rgb, kp.x, kp.y);
         out_of_bounds += (kp.x < 0 || kp.x >= img.width || kp.y < 0 || kp.y >= img.height);
     }
     std::cout << out_of_bounds << "\n";
-        //std::cout << kp.x << " " << kp.y << "\n";//draw_point(img, kp.x, kp.y);
-    img.save("box_keypoints.jpg");
+    rgb.save("box_keypoints.jpg");
     return 0;
 }

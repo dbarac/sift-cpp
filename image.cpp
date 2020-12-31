@@ -226,12 +226,28 @@ Image rgb_to_grayscale(const Image& img)
     return gray;
 }
 
+Image grayscale_to_rgb(const Image& img)
+{
+    assert(img.channels == 1);
+    Image rgb(img.width, img.height, 3);
+    for (int x = 0; x < img.width; x++) {
+        for (int y = 0; y < img.height; y++) {
+            float gray_val = img.get_pixel(x, y, 0);
+            rgb.set_pixel(x, y, 0, gray_val);
+            rgb.set_pixel(x, y, 1, gray_val);
+            rgb.set_pixel(x, y, 2, gray_val);
+        }
+    }
+    return rgb;
+}
+
 void draw_point(Image& img, int x, int y)
 {
     for (int i = x-3; i <= x+3; i++) {
         for (int j = y-3; j <= y+3; j++) {
             if (i < 0 || i >= img.width) continue;
             if (j < 0 || j >= img.height) continue;
+            if (std::abs(i-x) + std::abs(j-y) > 1) continue;
             //std::cout << i << " " << j << "\n";
             if (img.channels == 3) {
                 img.set_pixel(i, j, 0, 1.f);

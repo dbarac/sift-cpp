@@ -32,6 +32,7 @@ inline float map_coordinate(float new_max, float current_max, float coord);
 inline float bilinear_interpolate(const Image& img, float x, float y, int c);
 inline float nn_interpolate(const Image& img, float x, float y, int c);
 Image rgb_to_grayscale(const Image& img);
+Image grayscale_to_rgb(const Image& img);
 void draw_point(Image& img, int x, int y);
 
 // functions related to filtering

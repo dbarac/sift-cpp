@@ -118,22 +118,22 @@ mat::Matrix quadratic_fit(Keypoint& kp, const std::vector<Image>& octave, int sc
     float offset_s, offset_x, offset_y;
     int x = kp.x, y = kp.y;
 
-    g11 = (next.get_pixel(x, y, 0)-prev.get_pixel(x, y, 0)) / 2;
-    g12 = (img.get_pixel(x+1, y, 0)-img.get_pixel(x-1, y, 0)) / 2;
-    g13 = (img.get_pixel(x, y+1, 0)-img.get_pixel(x, y-1, 0)) / 2;
+    g11 = (next.get_pixel(x, y, 0) - prev.get_pixel(x, y, 0)) / 2;
+    g12 = (img.get_pixel(x+1, y, 0) - img.get_pixel(x-1, y, 0)) / 2;
+    g13 = (img.get_pixel(x, y+1, 0) - img.get_pixel(x, y-1, 0)) / 2;
 
     mat::Matrix grad(3, 1);
     grad.data = {g11, g12, g13};
 
     h11 = next.get_pixel(x, y, 0) + prev.get_pixel(x, y, 0) - 2*img.get_pixel(x, y, 0);
     h22 = img.get_pixel(x+1, y, 0) + img.get_pixel(x-1, y, 0) - 2*img.get_pixel(x, y, 0);
-    h33 = img.get_pixel(x, y+1, 0) + prev.get_pixel(x, y-1, 0) - 2*img.get_pixel(x, y, 0);
-    h12 = (next.get_pixel(x+1, y, 0)-next.get_pixel(x-1, y, 0)
-          -prev.get_pixel(x+1, y, 0)+prev.get_pixel(x-1, y, 0)) / 4;
-    h13 = (next.get_pixel(x, y+1, 0)-next.get_pixel(x, y-1, 0)
-          -prev.get_pixel(x, y+1, 0)+prev.get_pixel(x, y-1, 0)) / 4;
-    h23 = (img.get_pixel(x+1, y+1, 0)-img.get_pixel(x+1, y-1, 0)
-          -prev.get_pixel(x-1, y+1, 0)+prev.get_pixel(x-1, y-1, 0)) / 4;
+    h33 = img.get_pixel(x, y+1, 0) + img.get_pixel(x, y-1, 0) - 2*img.get_pixel(x, y, 0);
+    h12 = (next.get_pixel(x+1, y, 0) - next.get_pixel(x-1, y, 0)
+          -prev.get_pixel(x+1, y, 0) + prev.get_pixel(x-1, y, 0)) / 4;
+    h13 = (next.get_pixel(x, y+1, 0) - next.get_pixel(x, y-1, 0)
+          -prev.get_pixel(x, y+1, 0) + prev.get_pixel(x, y-1, 0)) / 4;
+    h23 = (img.get_pixel(x+1, y+1, 0) - img.get_pixel(x+1, y-1, 0)
+          -img.get_pixel(x-1, y+1, 0) + img.get_pixel(x-1, y-1, 0)) / 4;
     
     mat::Matrix hessian(3,3);
     hessian.data = {
@@ -163,8 +163,8 @@ bool point_on_edge(const Keypoint& kp, const std::vector<Image>& octave, float e
     int x = kp.x, y = kp.y;
     h11 = img.get_pixel(x+1, y, 0) + img.get_pixel(x-1, y, 0) - 2*img.get_pixel(x, y, 0);
     h22 = img.get_pixel(x, y+1, 0) + img.get_pixel(x, y-1, 0) - 2*img.get_pixel(x, y, 0);
-    h12 = (img.get_pixel(x+1, y+1, 0)-img.get_pixel(x+1, y-1, 0)
-          -img.get_pixel(x-1, y+1, 0)+img.get_pixel(x-1, y-1, 0)) / 4;
+    h12 = (img.get_pixel(x+1, y+1, 0) - img.get_pixel(x+1, y-1, 0)
+          -img.get_pixel(x-1, y+1, 0) + img.get_pixel(x-1, y-1, 0)) / 4;
 
     float det_hessian = h11*h22 - h12*h12;
     float tr_hessian = h11 + h22;
@@ -179,10 +179,10 @@ bool point_on_edge(const Keypoint& kp, const std::vector<Image>& octave, float e
 void find_absolute_keypoint_coords(Keypoint& kp, mat::Matrix offsets,
                                    int i, float sigma_min=0.8,
                                    float min_pix_dist=0.5, int n_spo=3)
-{
+{  
     kp.sigma = std::pow(2, i) * sigma_min * std::pow(2, (offsets(0, 0)+kp.scale)/n_spo);
-    kp.x = std::pow(2, i) * (offsets(1, 0)+kp.x);
-    kp.y = std::pow(2, i) * (offsets(2, 0)+kp.y);
+    kp.x = min_pix_dist * std::pow(2, i) * (offsets(1, 0)+kp.x);
+    kp.y = min_pix_dist * std::pow(2, i) * (offsets(2, 0)+kp.y);
 }
 
 bool refine_or_discard_keypoint(Keypoint& kp, const std::vector<Image>& octave,
