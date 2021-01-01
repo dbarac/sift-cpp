@@ -31,7 +31,6 @@ int main(int argc, char *argv[])
 
     mat::Matrix m_inv = mml.invert();
     mat::Matrix res = mat::mul(mml, m_inv);
-    mat::print(res);
     //std::exit(0);
     //std::cout << m.rows << "\n";
     Image img("imgs/box.png");
@@ -46,10 +45,26 @@ int main(int argc, char *argv[])
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     sift::ScaleSpacePyramid pyramid = sift::generate_scale_space_pyramid(img, 1.6);
     auto dog_pyramid = sift::generate_dog_pyramid(pyramid);
+    /*std::chrono::steady_clock::time_point pyr_time = std::chrono::steady_clock::now();
+    std::cout << "Pyramid generation ime difference (sec) = "
+              <<  (std::chrono::duration_cast<std::chrono::microseconds>(pyr_time - begin).count()) /1000000.0  << "\n";*/
+    
     auto keypoints = find_scalespace_extrema(dog_pyramid);
+    sift::ScaleSpacePyramid gx = sift::generate_gx_pyramid(pyramid);
+    sift::ScaleSpacePyramid gy = sift::generate_gy_pyramid(pyramid);
+    int k = 0;
+    for (auto& kp : keypoints) {
+        k++;
+        auto orientations = sift::find_keypoint_orientations(kp, gx, gy);
+        for (auto& theta : orientations) std::cout << theta << " ";
+        std::cout << "\n"; 
+        //if (k == 3) break;
+        //std::cout << kp.x << " " << kp.y << " " << kp.octave << " " << kp.scale << "\n";
+    }
+
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::cout << "Time difference (sec) = "
-              <<  (std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()) /1000000.0  <<std::endl;
+              <<  (std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()) /1000000.0  << "\n";
 	
     Image rgb = grayscale_to_rgb(img);
     int out_of_bounds = 0;
@@ -59,5 +74,7 @@ int main(int argc, char *argv[])
     }
     std::cout << out_of_bounds << "\n";
     rgb.save("box_keypoints.jpg");
+
+
     return 0;
 }

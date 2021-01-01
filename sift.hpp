@@ -34,5 +34,9 @@ ScaleSpacePyramid generate_scale_space_pyramid(const Image& img, float sigma);
 DoGPyramid generate_dog_pyramid(const ScaleSpacePyramid& img_pyramid);
 std::vector<Keypoint> find_scalespace_extrema(const DoGPyramid& dog_pyramid, float contrast_thresh=0.015);
 
+ScaleSpacePyramid generate_gx_pyramid(const ScaleSpacePyramid& pyramid);
+ScaleSpacePyramid generate_gy_pyramid(const ScaleSpacePyramid& pyramid);
+std::vector<float> find_keypoint_orientations(Keypoint& kp, ScaleSpacePyramid& gx_pyramid, ScaleSpacePyramid& gy_pyramid);
+
 }
 #endif

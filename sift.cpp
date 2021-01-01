@@ -3,7 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <unistd.h>
-
+#define _USE_MATH_DEFINES
 #include "sift.hpp"
 #include "image.hpp"
 #include "matrix.hpp"
@@ -243,6 +243,133 @@ std::vector<Keypoint> find_scalespace_extrema(const DoGPyramid& dog_pyramid, flo
     return extrema;
 }
 
+// calculate x derivatives for all images in the input pyramid
+ScaleSpacePyramid generate_gx_pyramid(const ScaleSpacePyramid& pyramid)
+{
+    ScaleSpacePyramid gx_pyramid = {
+        .num_octaves = pyramid.num_octaves,
+        .imgs_per_octave = pyramid.imgs_per_octave,
+        .octaves = std::vector<std::vector<Image>>(pyramid.num_octaves)
+    };
+    for (int i = 0; i < pyramid.num_octaves; i++) {
+        gx_pyramid.octaves[i].reserve(gx_pyramid.imgs_per_octave);
+        int width = pyramid.octaves[i][0].width;
+        int height = pyramid.octaves[i][0].height;
+        for (int j = 0; j < pyramid.imgs_per_octave; j++) {
+            Image img(width, height, 1);
+            for (int x = 1; x < img.width-1; x++) {
+                for (int y = 1; y < img.height-1; y++) {
+                    float val = (pyramid.octaves[i][j].get_pixel(x+1, y, 0)
+                                -pyramid.octaves[i][j].get_pixel(x-1, y, 0)) / 2;
+                    img.set_pixel(x, y, 0, val);
+                }
+            }
+            gx_pyramid.octaves[i].push_back(img);
+        }
+    }
+    return gx_pyramid;
+}
 
+// calculate y derivatives for all images in the input pyramid
+ScaleSpacePyramid generate_gy_pyramid(const ScaleSpacePyramid& pyramid)
+{
+    ScaleSpacePyramid gy_pyramid = {
+        .num_octaves = pyramid.num_octaves,
+        .imgs_per_octave = pyramid.imgs_per_octave,
+        .octaves = std::vector<std::vector<Image>>(pyramid.num_octaves)
+    };
+    for (int i = 0; i < pyramid.num_octaves; i++) {
+        gy_pyramid.octaves[i].reserve(gy_pyramid.imgs_per_octave);
+        int width = pyramid.octaves[i][0].width;
+        int height = pyramid.octaves[i][0].height;
+        for (int j = 0; j < pyramid.imgs_per_octave; j++) {
+            Image img(width, height, 1);
+            for (int x = 1; x < img.width-1; x++) {
+                for (int y = 1; y < img.height-1; y++) {
+                    float val = (pyramid.octaves[i][j].get_pixel(x, y+1, 0)
+                                -pyramid.octaves[i][j].get_pixel(x, y-1, 0)) / 2;
+                    img.set_pixel(x, y, 0, val);
+                }
+            }
+            gy_pyramid.octaves[i].push_back(img);
+        }
+    }
+    return gy_pyramid;
+}
+
+std::vector<float> find_keypoint_orientations(Keypoint& kp, ScaleSpacePyramid& gx_pyramid, ScaleSpacePyramid& gy_pyramid)
+{
+    const int n_bins = 36;
+    const float min_pix_dist = 0.5;
+    const float lambda_ori = 1.5;
+    const float pix_dist = min_pix_dist * std::pow(2, kp.octave);
+    
+    //derivative images
+    const Image& img_gx = gx_pyramid.octaves[kp.octave][kp.scale];
+    const Image& img_gy = gy_pyramid.octaves[kp.octave][kp.scale];
+    int x = kp.x / pix_dist;
+    int y = kp.y / pix_dist;
+    // discard kp if too close to image borders
+    int min_dist_from_border = std::min({x, y, img_gx.width-x, img_gx.height-y});
+    if (std::abs(min_dist_from_border) <= 3*pix_dist*lambda_ori*kp.sigma) {
+        //std::cout << "too close to border\n";
+        return std::vector<float>();
+    }
+    //find patch size w.r.t. the keypoint octave image size
+    int patch_size = std::round(6 * lambda_ori * kp.sigma / pix_dist);
+    if (patch_size % 2 == 0)
+        patch_size++;
+
+    // accumulate gradients in orientation histogram
+    float hist[n_bins] = {};
+    int bin;
+    float gx, gy, grad_norm, weight, patch_sigma;
+
+    for (int dx = -patch_size/2; dx <= patch_size/2; dx++) {
+        for (int dy = -patch_size/2; dy <= patch_size/2; dy++) {
+            gx = img_gx.get_pixel(x+dx, y+dy, 0);
+            gy = img_gy.get_pixel(x+dx, y+dy, 0);
+            grad_norm = std::sqrt(gx*gx + gy*gy);
+            patch_sigma = lambda_ori * kp.sigma;
+            weight = std::exp(-(std::pow(dx*pix_dist, 2)+std::pow(dy*pix_dist, 2)) / (2*patch_sigma*patch_sigma));
+            bin = std::round(n_bins/(2*M_PI) * std::fmod(std::atan2(gy, gx)+2*M_PI, 2*M_PI));
+            hist[bin] += weight * grad_norm;
+        }
+    }
+
+    // smooth histogram
+    float tmp_hist[n_bins];
+    for (int i = 0; i < 6; i++) {
+        for (int j = 0; j < n_bins; j++) {
+            int prev_idx = (j-1+n_bins)%n_bins;
+            int next_idx = (j+1)%n_bins;
+            tmp_hist[j] = (hist[prev_idx] + hist[j] + hist[next_idx]) / 3;
+        }
+        for (int j = 0; j < n_bins; j++) {
+            hist[j] = tmp_hist[j];
+        }
+    }
+
+    // extraction of reference orientations
+    float ori_thresh = 0.8, ori_max = 0;
+    int max_idx = -1;
+    std::vector<float> orientations;
+    for (int j = 0; j < n_bins; j++) {
+        if (hist[j] > ori_max) {
+            max_idx = j;
+            ori_max = hist[j];
+        }
+    }
+    for (int j = 0; j < n_bins; j++) {
+        if (hist[j] > ori_thresh * ori_max) {
+            float prev = hist[(j-1+n_bins)%n_bins], next = hist[(j+1)%n_bins];
+            if (prev > hist[j] || next > hist[j])
+                continue;
+            float theta = 2*M_PI*j/n_bins + M_PI/n_bins*(prev-next)/(prev-2*hist[j]+next);
+            orientations.push_back(theta);
+        }
+    }
+    return orientations;
+}
 
 } //namespace sift
