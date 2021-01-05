@@ -20,10 +20,15 @@ struct DoGPyramid {
 };
 
 struct Keypoint {
-    int x;
-    int y;
+    // discrete coordinates
+    int i;
+    int j;
     int octave;
     int scale; //index of gaussian image inside the octave
+
+    // continuous coordinates (interpolated)
+    float x;
+    float y;
     float sigma;
     float extremum_val; //value of interpolated DoG extremum
 };
@@ -36,7 +41,7 @@ std::vector<Keypoint> find_scalespace_extrema(const DoGPyramid& dog_pyramid, flo
 
 ScaleSpacePyramid generate_gx_pyramid(const ScaleSpacePyramid& pyramid);
 ScaleSpacePyramid generate_gy_pyramid(const ScaleSpacePyramid& pyramid);
-std::vector<float> find_keypoint_orientations(Keypoint& kp, ScaleSpacePyramid& gx_pyramid, ScaleSpacePyramid& gy_pyramid);
-
+std::vector<float> find_keypoint_orientations(Keypoint& kp, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid);
+void compute_keypoint_descriptor(Keypoint& kp, float orientation, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid);
 }
 #endif

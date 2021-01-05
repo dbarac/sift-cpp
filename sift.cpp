@@ -1,9 +1,10 @@
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <iostream>
 #include <vector>
 #include <algorithm>
 #include <unistd.h>
-#define _USE_MATH_DEFINES
+
 #include "sift.hpp"
 #include "image.hpp"
 #include "matrix.hpp"
@@ -14,7 +15,7 @@ namespace sift {
 ScaleSpacePyramid generate_scale_space_pyramid(const Image& img, float base_sigma)
 {
     // assume initial sigma is 1.0 (after resizing) and smooth
-    // the image with sigma_diff to reach requried smoothing
+    // the image with sigma_diff to reach requried base_sigma
     Image base_img = img.resize(img.width*2, img.height*2, Interpolation::BILINEAR);
     float sigma_diff = std::sqrt(base_sigma*base_sigma - 1.0f);
     base_img = convolve(base_img, make_gaussian_filter(sigma_diff), false);
@@ -22,7 +23,7 @@ ScaleSpacePyramid generate_scale_space_pyramid(const Image& img, float base_sigm
     int num_octaves = 4, scales_per_octave = 3;
     int imgs_per_octave = scales_per_octave + 3;
 
-    // determine all sigma values for all
+    // determine all sigma values for all kernels
     // and generate gaussian kernels for all sigmas
     float k = std::pow(2, 1.0/scales_per_octave);
     std::vector<float> sigma_vals {base_sigma};
@@ -116,7 +117,7 @@ mat::Matrix quadratic_fit(Keypoint& kp, const std::vector<Image>& octave, int sc
     float g11, g12, g13;
     float h11, h12, h13, h21, h22, h23, h31, h32, h33;
     float offset_s, offset_x, offset_y;
-    int x = kp.x, y = kp.y;
+    int x = kp.i, y = kp.j;
 
     g11 = (next.get_pixel(x, y, 0) - prev.get_pixel(x, y, 0)) / 2;
     g12 = (img.get_pixel(x+1, y, 0) - img.get_pixel(x-1, y, 0)) / 2;
@@ -156,11 +157,11 @@ mat::Matrix quadratic_fit(Keypoint& kp, const std::vector<Image>& octave, int sc
     return offsets;
 }
 
-bool point_on_edge(const Keypoint& kp, const std::vector<Image>& octave, float edge_thresh)
+bool point_is_on_edge(const Keypoint& kp, const std::vector<Image>& octave, float edge_thresh)
 {
     const Image& img = octave[kp.scale];
     float h11, h12, h22;
-    int x = kp.x, y = kp.y;
+    int x = kp.i, y = kp.j;
     h11 = img.get_pixel(x+1, y, 0) + img.get_pixel(x-1, y, 0) - 2*img.get_pixel(x, y, 0);
     h22 = img.get_pixel(x, y+1, 0) + img.get_pixel(x, y-1, 0) - 2*img.get_pixel(x, y, 0);
     h12 = (img.get_pixel(x+1, y+1, 0) - img.get_pixel(x+1, y-1, 0)
@@ -181,8 +182,8 @@ void find_absolute_keypoint_coords(Keypoint& kp, mat::Matrix offsets,
                                    float min_pix_dist=0.5, int n_spo=3)
 {  
     kp.sigma = std::pow(2, i) * sigma_min * std::pow(2, (offsets(0, 0)+kp.scale)/n_spo);
-    kp.x = min_pix_dist * std::pow(2, i) * (offsets(1, 0)+kp.x);
-    kp.y = min_pix_dist * std::pow(2, i) * (offsets(2, 0)+kp.y);
+    kp.x = min_pix_dist * std::pow(2, i) * (offsets(1, 0)+kp.i);
+    kp.y = min_pix_dist * std::pow(2, i) * (offsets(2, 0)+kp.j);
 }
 
 bool refine_or_discard_keypoint(Keypoint& kp, const std::vector<Image>& octave,
@@ -198,19 +199,18 @@ bool refine_or_discard_keypoint(Keypoint& kp, const std::vector<Image>& octave,
         float max_offset = std::max({std::abs(offsets(0, 0)),
                                      std::abs(offsets(1, 0)),
                                      std::abs(offsets(2, 0))});
+        // find nearest discrete coordinates
+        kp.scale += std::round(offsets(1, 0));
+        kp.i += std::round(offsets(1, 0));
+        kp.j += std::round(offsets(2, 0));
+        if (kp.scale >= octave.size()-1 || kp.scale < 1)
+            break;
 
         bool valid_contrast = std::abs(kp.extremum_val) > contrast_thresh;
-        if (max_offset < 0.6 && valid_contrast && !point_on_edge(kp, octave, 10.f)) {
+        if (max_offset < 0.6 && valid_contrast && !point_is_on_edge(kp, octave, 10.f)) {
             find_absolute_keypoint_coords(kp, offsets, octave_idx);
             kp_is_valid = true;
             break;
-        } else {
-            //find nearest discrete coordinates and refine again
-            kp.scale += std::round(offsets(1, 0));
-            kp.x += std::round(offsets(1, 0));
-            kp.y += std::round(offsets(2, 0));
-            if (kp.scale >= octave.size()-1 || kp.scale < 1)
-                break;
         }
     }
     return kp_is_valid;
@@ -229,7 +229,7 @@ std::vector<Keypoint> find_scalespace_extrema(const DoGPyramid& dog_pyramid, flo
                         continue;
                     }
                     if (point_is_extremum(octave, j, x, y)) {
-                        Keypoint kp = {x, y, i, j, -1, -1};
+                        Keypoint kp = {x, y, i, j, -1, -1, -1, -1};
                         bool kp_is_valid = refine_or_discard_keypoint(kp, octave, i, contrast_thresh);
                         if (kp_is_valid) {
                             extrema.push_back(kp);
@@ -297,7 +297,9 @@ ScaleSpacePyramid generate_gy_pyramid(const ScaleSpacePyramid& pyramid)
     return gy_pyramid;
 }
 
-std::vector<float> find_keypoint_orientations(Keypoint& kp, ScaleSpacePyramid& gx_pyramid, ScaleSpacePyramid& gy_pyramid)
+std::vector<float> find_keypoint_orientations(Keypoint& kp, 
+                                              const ScaleSpacePyramid& gx_pyramid,
+                                              const ScaleSpacePyramid& gy_pyramid)
 {
     const int n_bins = 36;
     const float min_pix_dist = 0.5;
@@ -307,11 +309,12 @@ std::vector<float> find_keypoint_orientations(Keypoint& kp, ScaleSpacePyramid& g
     //derivative images
     const Image& img_gx = gx_pyramid.octaves[kp.octave][kp.scale];
     const Image& img_gy = gy_pyramid.octaves[kp.octave][kp.scale];
-    int x = kp.x / pix_dist;
-    int y = kp.y / pix_dist;
-    // discard kp if too close to image borders
-    int min_dist_from_border = std::min({x, y, img_gx.width-x, img_gx.height-y});
-    if (std::abs(min_dist_from_border) <= 3*pix_dist*lambda_ori*kp.sigma) {
+    //int x = kp.x / pix_dist;
+    //int y = kp.y / pix_dist;
+
+    // discard kp if too close to image borders 
+    float min_dist_from_border = std::min({kp.x, kp.y, pix_dist*img_gx.width-kp.x, pix_dist*img_gx.height-kp.y});
+    if (min_dist_from_border <= 3*lambda_ori*kp.sigma) {
         //std::cout << "too close to border\n";
         return std::vector<float>();
     }
@@ -323,16 +326,24 @@ std::vector<float> find_keypoint_orientations(Keypoint& kp, ScaleSpacePyramid& g
     // accumulate gradients in orientation histogram
     float hist[n_bins] = {};
     int bin;
-    float gx, gy, grad_norm, weight, patch_sigma;
+    float gx, gy, grad_norm, weight, patch_sigma, theta;
+    
+    int x_start = std::round((kp.x - 3*lambda_ori*kp.sigma)/pix_dist);
+    int x_end = std::round((kp.x + 3*lambda_ori*kp.sigma)/pix_dist);
+    int y_start = std::round((kp.y - 3*lambda_ori*kp.sigma)/pix_dist);
+    int y_end = std::round((kp.y + 3*lambda_ori*kp.sigma)/pix_dist);
 
-    for (int dx = -patch_size/2; dx <= patch_size/2; dx++) {
-        for (int dy = -patch_size/2; dy <= patch_size/2; dy++) {
-            gx = img_gx.get_pixel(x+dx, y+dy, 0);
-            gy = img_gy.get_pixel(x+dx, y+dy, 0);
+    //std::cout << "patch: " << patch_size << " " << x_end-x_start+1 << "\n";
+    for (int x = x_start; x <= x_end; x++) {
+        for (int y = y_start; y <= y_end; y++) {
+            gx = img_gx.get_pixel(x, y, 0);
+            gy = img_gy.get_pixel(x, y, 0);
             grad_norm = std::sqrt(gx*gx + gy*gy);
             patch_sigma = lambda_ori * kp.sigma;
-            weight = std::exp(-(std::pow(dx*pix_dist, 2)+std::pow(dy*pix_dist, 2)) / (2*patch_sigma*patch_sigma));
-            bin = std::round(n_bins/(2*M_PI) * std::fmod(std::atan2(gy, gx)+2*M_PI, 2*M_PI));
+            weight = std::exp(-(std::pow(x*pix_dist-kp.x, 2)+std::pow(y*pix_dist-kp.y, 2))
+                              /(2*patch_sigma*patch_sigma));
+            theta = std::fmod(std::atan2(gy, gx)+2*M_PI, 2*M_PI);
+            bin = std::round(n_bins/(2*M_PI) * theta);
             hist[bin] += weight * grad_norm;
         }
     }
@@ -350,7 +361,7 @@ std::vector<float> find_keypoint_orientations(Keypoint& kp, ScaleSpacePyramid& g
         }
     }
 
-    // extraction of reference orientations
+    // extract reference orientations
     float ori_thresh = 0.8, ori_max = 0;
     int max_idx = -1;
     std::vector<float> orientations;
@@ -365,11 +376,34 @@ std::vector<float> find_keypoint_orientations(Keypoint& kp, ScaleSpacePyramid& g
             float prev = hist[(j-1+n_bins)%n_bins], next = hist[(j+1)%n_bins];
             if (prev > hist[j] || next > hist[j])
                 continue;
-            float theta = 2*M_PI*j/n_bins + M_PI/n_bins*(prev-next)/(prev-2*hist[j]+next);
+            float theta = 2*M_PI*(j+1)/n_bins + M_PI/n_bins*(prev-next)/(prev-2*hist[j]+next); // j+1?
             orientations.push_back(theta);
         }
     }
     return orientations;
+}
+
+void compute_keypoint_descriptor(Keypoint& kp, float orientation,
+                                 const ScaleSpacePyramid& gx_pyramid,
+                                 const ScaleSpacePyramid& gy_pyramid)
+{
+    const float min_pix_dist = 0.5;
+    const float lambda_desc = 6;
+    const float pix_dist = min_pix_dist * std::pow(2, kp.octave);
+    const int n_hist = 4, n_ori = 8;
+    
+    //derivative images
+    const Image& img_gx = gx_pyramid.octaves[kp.octave][kp.scale];
+    const Image& img_gy = gy_pyramid.octaves[kp.octave][kp.scale];
+
+    // discard kp if too close to image borders 
+    float min_dist_from_border = std::min({kp.x, kp.y, pix_dist*img_gx.width-kp.x, pix_dist*img_gx.height-kp.y});
+    if (min_dist_from_border <= std::sqrt(2)*lambda_desc*kp.sigma) {
+        //std::cout << "too close to border\n";
+        return;
+    }
+
+    
 }
 
 } //namespace sift

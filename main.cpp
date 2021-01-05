@@ -56,8 +56,11 @@ int main(int argc, char *argv[])
     for (auto& kp : keypoints) {
         k++;
         auto orientations = sift::find_keypoint_orientations(kp, gx, gy);
-        for (auto& theta : orientations) std::cout << theta << " ";
-        std::cout << "\n"; 
+        for (auto& theta : orientations) {
+            //if (orientations.size()) std::cout << theta << "\n";
+            sift::compute_keypoint_descriptor(kp, theta, gx, gy);
+        }
+        //std::cout << "\n"; 
         //if (k == 3) break;
         //std::cout << kp.x << " " << kp.y << " " << kp.octave << " " << kp.scale << "\n";
     }
