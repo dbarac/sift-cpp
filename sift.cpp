@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <unistd.h>
+#include <array>
 
 #include "sift.hpp"
 #include "image.hpp"
@@ -383,16 +384,46 @@ std::vector<float> find_keypoint_orientations(Keypoint& kp,
     return orientations;
 }
 
-void compute_keypoint_descriptor(Keypoint& kp, float orientation,
-                                 const ScaleSpacePyramid& gx_pyramid,
-                                 const ScaleSpacePyramid& gy_pyramid)
+void update_histograms(float hist[4][4][8], float x, float y,  float contrib, float theta_mn)
+{
+    const int n_hist = 4, n_ori = 8;
+    const float lambda_desc = 6;
+
+    float x_i, y_j;
+    for (int i = 1; i <= n_hist; i++) {
+        for (int j = 1; j <= n_hist; j++) {
+            x_i = (i-(1+(float)n_hist)/2) * 2*lambda_desc/n_hist;
+            if (std::abs(x_i-x) > 2*lambda_desc/n_hist)
+                continue;
+            y_j = (j-(1+(float)n_hist)/2) * 2*lambda_desc/n_hist;
+            if (std::abs(y_j-y) > 2*lambda_desc/n_hist)
+                continue;
+            
+            float hist_weight = (1 - n_hist*0.5/lambda_desc*std::abs(x_i-x))
+                               *(1 - n_hist*0.5/lambda_desc*std::abs(y_j-y));
+
+            for (int k = 1; k <= n_ori; k++) {
+                float theta_k = 2*M_PI*(k-1)/n_ori;
+                float theta_diff = std::fmod(theta_k-theta_mn+2*M_PI, 2*M_PI);
+                if (std::abs(theta_diff) > 2*M_PI/n_ori)
+                    continue;
+                float bin_weight = 1 - n_ori*0.5/M_PI*std::abs(theta_diff);
+                hist[i-1][j-1][k-1] += hist_weight*bin_weight*contrib;
+            }
+        }
+    }
+}
+
+std::array<int, 128> compute_keypoint_descriptor(Keypoint& kp, float theta,
+                                                 const ScaleSpacePyramid& gx_pyramid,
+                                                 const ScaleSpacePyramid& gy_pyramid)
 {
     const float min_pix_dist = 0.5;
     const float lambda_desc = 6;
     const float pix_dist = min_pix_dist * std::pow(2, kp.octave);
     const int n_hist = 4, n_ori = 8;
     
-    //derivative images
+    //find derivative images
     const Image& img_gx = gx_pyramid.octaves[kp.octave][kp.scale];
     const Image& img_gy = gy_pyramid.octaves[kp.octave][kp.scale];
 
@@ -400,10 +431,74 @@ void compute_keypoint_descriptor(Keypoint& kp, float orientation,
     float min_dist_from_border = std::min({kp.x, kp.y, pix_dist*img_gx.width-kp.x, pix_dist*img_gx.height-kp.y});
     if (min_dist_from_border <= std::sqrt(2)*lambda_desc*kp.sigma) {
         //std::cout << "too close to border\n";
-        return;
+        return std::array<int, 128>();
     }
 
+    //initialize histograms
+    float histograms[n_hist][n_hist][n_ori] = {0};
+
+    //find start and end coords for loops over image patch
+    int x_start = std::round((kp.x-std::sqrt(2)*lambda_desc*kp.sigma*(n_hist+1)/n_hist) / pix_dist);
+    int x_end = std::round((kp.x+std::sqrt(2)*lambda_desc*kp.sigma*(n_hist+1)/n_hist) / pix_dist);
+    int y_start = std::round((kp.y-std::sqrt(2)*lambda_desc*kp.sigma*(n_hist+1)/n_hist) / pix_dist);
+    int y_end = std::round((kp.y+std::sqrt(2)*lambda_desc*kp.sigma*(n_hist+1)/n_hist) / pix_dist);
+
+    //accumulate samples into histograms
+    for (int m = x_start; m <= x_end; m++) {
+        for (int n = y_start; n <= y_end; n++) {
+            // find normalized coords w.r.t. the reference orientation
+            float x = ((m*pix_dist - kp.x)*std::cos(theta)
+                     + (n*pix_dist - kp.y)*std::sin(theta)) / kp.sigma;
+            float y = (-(m*pix_dist - kp.x)*std::sin(theta)
+                       +(n*pix_dist - kp.y)*std::cos(theta)) / kp.sigma;
+
+            // verify (x, y) is inside the description patch
+            if (std::max(std::abs(x), std::abs(y)) > lambda_desc*(n_hist+1)/n_hist)
+                continue;
+
+            float gx = img_gx.get_pixel(m, n, 0), gy = img_gy.get_pixel(m, n, 0);
+            float theta_mn = std::fmod(std::atan2(gy, gx)-theta+2*M_PI, 2*M_PI);
+            float grad_norm = std::sqrt(gx*gx + gy*gy);
+            float patch_sigma = lambda_desc * kp.sigma;
+            float weight = std::exp(-(std::pow(m*pix_dist-kp.x, 2)+std::pow(n*pix_dist-kp.y, 2))
+                                    /(2*patch_sigma*patch_sigma));
+            float contribution = weight * grad_norm;
+
+            update_histograms(histograms, x, y, contribution, theta_mn);
+        }
+    }
+
+    // build feature vector from histograms
+    float norm = 0;
+    for (int i = 0; i < n_hist; i++) {
+        for (int j = 0; j < n_hist; j++) {
+            for (int k = 0; k < n_ori; k++) {
+                norm += histograms[i][j][k] * histograms[i][j][k];
+            }
+        }
+    }
+    norm = std::sqrt(norm);
+    float norm2 = 0;
+    for (int i = 0; i < n_hist; i++) {
+        for (int j = 0; j < n_hist; j++) {
+            for (int k = 0; k < n_ori; k++) {
+                histograms[i][j][k] = std::min(histograms[i][j][k], 0.2f*norm);
+                norm2 += histograms[i][j][k] * histograms[i][j][k];
+            }
+        }
+    }
+    norm2 = std::sqrt(norm2);
+    std::array<int, 128> feature_vec;
+    for (int i = 0; i < n_hist; i++) {
+        for (int j = 0; j < n_hist; j++) {
+            for (int k = 0; k < n_ori; k++) {
+                float val = histograms[i][j][k] / norm2 * std::sqrt(512);
+                feature_vec[i*n_hist + j*n_hist + k] = std::min((int)val, 255);
+            }
+        }
+    }
     
+    return feature_vec;
 }
 
 } //namespace sift

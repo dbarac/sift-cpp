@@ -1,4 +1,5 @@
 #include <vector>
+#include <array>
 #include "image.hpp"
 #ifndef SIFT_H
 #define SIFT_H
@@ -42,6 +43,6 @@ std::vector<Keypoint> find_scalespace_extrema(const DoGPyramid& dog_pyramid, flo
 ScaleSpacePyramid generate_gx_pyramid(const ScaleSpacePyramid& pyramid);
 ScaleSpacePyramid generate_gy_pyramid(const ScaleSpacePyramid& pyramid);
 std::vector<float> find_keypoint_orientations(Keypoint& kp, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid);
-void compute_keypoint_descriptor(Keypoint& kp, float orientation, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid);
+std::array<int, 128> compute_keypoint_descriptor(Keypoint& kp, float theta, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid);
 }
 #endif

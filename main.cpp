@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
     int out_of_bounds = 0;
     for (auto& kp : keypoints) {
         draw_point(rgb, kp.x, kp.y);
+        //std::cout << kp.sigma << "\n";
         out_of_bounds += (kp.x < 0 || kp.x >= img.width || kp.y < 0 || kp.y >= img.height);
     }
     std::cout << out_of_bounds << "\n";
