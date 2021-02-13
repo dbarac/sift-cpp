@@ -32,6 +32,8 @@ struct Keypoint {
     float y;
     float sigma;
     float extremum_val; //value of interpolated DoG extremum
+    
+    std::array<int, 128> descriptor;
 };
 
 const int MAX_REFINEMENT_ITERS = 5;
@@ -44,5 +46,11 @@ ScaleSpacePyramid generate_gx_pyramid(const ScaleSpacePyramid& pyramid);
 ScaleSpacePyramid generate_gy_pyramid(const ScaleSpacePyramid& pyramid);
 std::vector<float> find_keypoint_orientations(Keypoint& kp, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid);
 std::array<int, 128> compute_keypoint_descriptor(Keypoint& kp, float theta, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid);
+
+std::vector<Keypoint> find_keypoints_and_descriptors(const Image& img);
+std::vector<std::pair<int, int>> find_keypoint_matches(std::vector<Keypoint>& a, std::vector<Keypoint>& b);
+
+Image draw_matches(const Image& a, const Image& b, std::vector<Keypoint> kps_a, std::vector<Keypoint> kps_b, std::vector<std::pair<int, int>> matches);
+
 }
 #endif

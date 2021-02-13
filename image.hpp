@@ -33,7 +33,10 @@ inline float bilinear_interpolate(const Image& img, float x, float y, int c);
 inline float nn_interpolate(const Image& img, float x, float y, int c);
 Image rgb_to_grayscale(const Image& img);
 Image grayscale_to_rgb(const Image& img);
+
+// drawing
 void draw_point(Image& img, int x, int y);
+void draw_line(Image& img, int x1, int y1, int x2, int y2);
 
 // functions related to filtering
 Image convolve(const Image& img, const Image& filter, bool preserve);

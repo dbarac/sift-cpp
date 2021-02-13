@@ -10,7 +10,6 @@
 
 Image::Image(std::string file_path)
 {
-    int width, height, channels;
     unsigned char *img_data = stbi_load(file_path.c_str(), &width, &height, &channels, 0);
     if (img_data == nullptr) {
         const char *error_msg = stbi_failure_reason();
@@ -18,12 +17,6 @@ Image::Image(std::string file_path)
         std::cerr << "Error msg (stb_image): " << error_msg << "\n";
         std::exit(1);
     }
-
-    this->width = width;
-    this->height = height;
-    if (channels == 4)
-        channels = 3; //ignore alpha channel
-    this->channels = channels;
 
     size = width * height * channels;
     this->data = new float[size]; 
@@ -36,6 +29,8 @@ Image::Image(std::string file_path)
             }
         }
     }
+    if (channels == 4)
+        channels = 3; //ignore alpha channel
     stbi_image_free(img_data);
 }
 
@@ -257,6 +252,25 @@ void draw_point(Image& img, int x, int y)
                 img.set_pixel(i, j, 0, 1.f);
             }
         }
+    }
+}
+
+void draw_line(Image& img, int x1, int y1, int x2, int y2)
+{
+    if (x2 < x1) {
+        int tmp = x1;
+        x1 = x2;
+        x2 = tmp;
+        tmp = y1;
+        y1 = y2;
+        y2 = tmp;
+    }
+    int dx = x2 - x1, dy = y2 - y1;
+    for (int x = x1; x < x2; x++) {
+        int y = y1 + dy*(x-x1)/dx;
+        img.set_pixel(x, y, 0, 0.f);
+        img.set_pixel(x, y, 1, 1.f);
+        img.set_pixel(x, y, 2, 0.f);
     }
 }
 

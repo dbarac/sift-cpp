@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <unistd.h>
 #include <array>
+#include <cassert>
 
 #include "sift.hpp"
 #include "image.hpp"
@@ -320,9 +321,10 @@ std::vector<float> find_keypoint_orientations(Keypoint& kp,
         return std::vector<float>();
     }
     //find patch size w.r.t. the keypoint octave image size
-    int patch_size = std::round(6 * lambda_ori * kp.sigma / pix_dist);
+    /*int patch_size = std::round(6 * lambda_ori * kp.sigma / pix_dist);
     if (patch_size % 2 == 0)
         patch_size++;
+    */
 
     // accumulate gradients in orientation histogram
     float hist[n_bins] = {};
@@ -372,6 +374,10 @@ std::vector<float> find_keypoint_orientations(Keypoint& kp,
             ori_max = hist[j];
         }
     }
+    //TODO: remove this (returning only one orientation), or don't (this way there are fewer outliers)
+    //orientations.push_back(2*M_PI*(max_idx)/n_bins);
+    //return orientations;
+
     for (int j = 0; j < n_bins; j++) {
         if (hist[j] > ori_thresh * ori_max) {
             float prev = hist[(j-1+n_bins)%n_bins], next = hist[(j+1)%n_bins];
@@ -391,10 +397,10 @@ void update_histograms(float hist[4][4][8], float x, float y,  float contrib, fl
 
     float x_i, y_j;
     for (int i = 1; i <= n_hist; i++) {
+        x_i = (i-(1+(float)n_hist)/2) * 2*lambda_desc/n_hist;
+        if (std::abs(x_i-x) > 2*lambda_desc/n_hist)
+            continue;
         for (int j = 1; j <= n_hist; j++) {
-            x_i = (i-(1+(float)n_hist)/2) * 2*lambda_desc/n_hist;
-            if (std::abs(x_i-x) > 2*lambda_desc/n_hist)
-                continue;
             y_j = (j-(1+(float)n_hist)/2) * 2*lambda_desc/n_hist;
             if (std::abs(y_j-y) > 2*lambda_desc/n_hist)
                 continue;
@@ -405,13 +411,21 @@ void update_histograms(float hist[4][4][8], float x, float y,  float contrib, fl
             for (int k = 1; k <= n_ori; k++) {
                 float theta_k = 2*M_PI*(k-1)/n_ori;
                 float theta_diff = std::fmod(theta_k-theta_mn+2*M_PI, 2*M_PI);
-                if (std::abs(theta_diff) > 2*M_PI/n_ori)
+                if (std::abs(theta_diff) >= 2*M_PI/n_ori)
                     continue;
                 float bin_weight = 1 - n_ori*0.5/M_PI*std::abs(theta_diff);
                 hist[i-1][j-1][k-1] += hist_weight*bin_weight*contrib;
             }
         }
     }
+}
+
+float l2_norm(std::array<int, 128> vec)
+{
+    float norm = 0;
+    for (int i = 0; i < 128; i++)
+        norm += vec[i] * vec[i];
+    return std::sqrt(norm);
 }
 
 std::array<int, 128> compute_keypoint_descriptor(Keypoint& kp, float theta,
@@ -429,9 +443,9 @@ std::array<int, 128> compute_keypoint_descriptor(Keypoint& kp, float theta,
 
     // discard kp if too close to image borders 
     float min_dist_from_border = std::min({kp.x, kp.y, pix_dist*img_gx.width-kp.x, pix_dist*img_gx.height-kp.y});
-    if (min_dist_from_border <= std::sqrt(2)*lambda_desc*kp.sigma) {
+    if (min_dist_from_border < std::sqrt(2)*lambda_desc*kp.sigma) {
         //std::cout << "too close to border\n";
-        return std::array<int, 128>();
+        return std::array<int, 128> {-1}; //TODO: error handling
     }
 
     //initialize histograms
@@ -448,7 +462,7 @@ std::array<int, 128> compute_keypoint_descriptor(Keypoint& kp, float theta,
         for (int n = y_start; n <= y_end; n++) {
             // find normalized coords w.r.t. the reference orientation
             float x = ((m*pix_dist - kp.x)*std::cos(theta)
-                     + (n*pix_dist - kp.y)*std::sin(theta)) / kp.sigma;
+                      +(n*pix_dist - kp.y)*std::sin(theta)) / kp.sigma;
             float y = (-(m*pix_dist - kp.x)*std::sin(theta)
                        +(n*pix_dist - kp.y)*std::cos(theta)) / kp.sigma;
 
@@ -488,17 +502,122 @@ std::array<int, 128> compute_keypoint_descriptor(Keypoint& kp, float theta,
         }
     }
     norm2 = std::sqrt(norm2);
-    std::array<int, 128> feature_vec;
+    //std::cout << "hist norm2: " << norm2 << "\n"; //ove norme su ok, nema nula, problem vjv u prebacivanju u int
+    std::array<int, 128> feature_vec = {0};
     for (int i = 0; i < n_hist; i++) {
         for (int j = 0; j < n_hist; j++) {
             for (int k = 0; k < n_ori; k++) {
-                float val = histograms[i][j][k] / norm2 * std::sqrt(512);
-                feature_vec[i*n_hist + j*n_hist + k] = std::min((int)val, 255);
+                //float val = histograms[i][j][k] / norm2 * std::sqrt(512);
+                float val = std::floor(512*histograms[i][j][k]/norm2);
+                feature_vec[i*n_hist*n_ori + j*n_ori + k] = std::min((int)val, 255);//std::min((int)val, 255);
             }
         }
     }
-    
+    //std::cout << "vec norm: " << l2_norm(feature_vec) << "\n";
+    /*
+    for (auto val : feature_vec) {
+        std::cout << val << " ";
+    }
+    std::cout << "\n";*/
     return feature_vec;
+}
+
+std::vector<Keypoint> find_keypoints_and_descriptors(const Image& img)
+{
+    ScaleSpacePyramid gaussian_pyramid = generate_scale_space_pyramid(img, 1.6);
+    auto dog_pyramid = generate_dog_pyramid(gaussian_pyramid);
+    auto keypoints = find_scalespace_extrema(dog_pyramid);
+    ScaleSpacePyramid gx = generate_gx_pyramid(gaussian_pyramid);
+    ScaleSpacePyramid gy = generate_gy_pyramid(gaussian_pyramid);
+    
+    std::vector<Keypoint> kps;
+    for (auto& kp : keypoints) {
+        auto orientations = find_keypoint_orientations(kp, gx, gy);
+        for (auto& theta : orientations) {
+            Keypoint kp2 = kp;
+            kp2.descriptor = compute_keypoint_descriptor(kp, theta, gx, gy);
+            if (kp2.descriptor[0] != -1) {
+                //std::cout << "kp vec norm: " << l2_norm(kp2.descriptor) << "\n";
+                kps.push_back(kp2);
+            }
+        }
+    }
+    std::cout << "kpslen: " << kps.size() << " " << keypoints.size() << "\n";
+    return kps; //TODO: check why fewer points are drawn when returning kps instead of keypoints (reason: no theta for kps too close to border)
+}
+
+float euclidean_dist(std::array<int, 128> a, std::array<int, 128> b)
+{
+    //TODO: try transform and accumulate
+    //std::cout << "\n\n";
+    float dist = 0;
+    for (int i = 0; i < 128; i++) {
+        dist += (a[i]-b[i]) * (a[i]-b[i]);
+        //std::cout << a[i] << " " << b[i] << "\n";
+    }
+    //std::cout << std::sqrt(dist) << "\n";
+    return std::sqrt(dist);
+}
+
+std::vector<std::pair<int, int>> find_keypoint_matches(std::vector<Keypoint>& a,
+                                                       std::vector<Keypoint>& b)
+{
+    assert(a.size() >= 2 && b.size() >= 2);
+
+    std::vector<std::pair<int, int>> matches;
+    const float thresh_relative = 0.7;
+    const float thresh_absolute = 30000;
+
+    for (int i = 0; i < a.size(); i++) {
+        // find two nearest neighbours in b for current keypoint from a
+        int nn1_idx = -1, nn2_idx = -1;
+        float nn1_dist = 100000000, nn2_dist = 100000000;
+        for (int j = 0; j < b.size(); j++) {
+            float dist = euclidean_dist(a[i].descriptor, b[j].descriptor);
+            if (dist < nn1_dist) {
+                nn2_dist = nn1_dist;
+                nn2_idx = nn1_idx;
+                nn1_dist = dist;
+                nn1_idx = j;
+            } else if (nn1_dist < dist && dist < nn2_dist) {
+                nn2_dist = dist;
+                nn2_idx = j;
+            }
+        }
+        if (nn1_dist < thresh_relative*nn2_dist && nn1_dist < thresh_absolute) {
+            //std::cout << nn1_idx << " " << nn1_dist << "\n";
+            matches.push_back({i, nn1_idx});
+        }
+    }
+    return matches;
+}
+
+Image draw_matches(const Image& a, const Image& b, std::vector<Keypoint> kps_a,
+                   std::vector<Keypoint> kps_b, std::vector<std::pair<int, int>> matches)
+{
+    Image res(a.width+b.width, std::max(a.height, b.height), 3);
+
+    for (int i = 0; i < a.width; i++) {
+        for (int j = 0; j < a.height; j++) {
+            res.set_pixel(i, j, 0, a.get_pixel(i, j, 0));
+            res.set_pixel(i, j, 1, a.get_pixel(i, j, 0));
+            res.set_pixel(i, j, 2, a.get_pixel(i, j, 0));
+        }
+    }
+    for (int i = 0; i < b.width; i++) {
+        for (int j = 0; j < b.height; j++) {
+            res.set_pixel(a.width+i, j, 0, b.get_pixel(i, j, 0));
+            res.set_pixel(a.width+i, j, 1, b.get_pixel(i, j, 0));
+            res.set_pixel(a.width+i, j, 2, b.get_pixel(i, j, 0));
+        }
+    }
+
+    for (auto m : matches) {
+        Keypoint& kp_a = kps_a[m.first];
+        Keypoint& kp_b = kps_b[m.second];
+        draw_line(res, kp_a.x, kp_a.y, a.width+kp_b.x, kp_b.y);
+    }
+    return res;
 }
 
 } //namespace sift
