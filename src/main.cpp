@@ -15,8 +15,8 @@ int main(int argc, char *argv[])
     std::ios_base::sync_with_stdio(false);
     std::cin.tie(NULL);
 
-    Image img("imgs/book_rotated.jpg");
-    Image img2("imgs/book_in_scene.jpg");
+    Image img("./../imgs/book_rotated.jpg");
+    Image img2("./../imgs/book_in_scene.jpg");
     img = rgb_to_grayscale(img);
     img2 = rgb_to_grayscale(img2);
 
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     for (auto& kp : kps_a) {
         draw_point(rgb, kp.x, kp.y);
     }
-    rgb.save("box_keypoints.jpg");
+    rgb.save("./../imgs/box_keypoints.jpg");
 
     rgb = grayscale_to_rgb(img2);
     std::cout << "kps: " << kps_b.size() << "\n";
