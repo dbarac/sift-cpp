@@ -134,16 +134,12 @@ void Image::set_pixel(int x, int y, int c, float val)
 float Image::get_pixel(int x, int y, int c) const
 {
     if (x < 0)
-        //return 0.0f;
         x = 0;
     if (x >= width)
-        //return 0.f;
         x = width - 1;
     if (y < 0)
-        //return 0.f;
         y = 0;
     if (y >= height)
-        //return 0.0f;
         y = height - 1;
     return data[c*width*height + y*width + x];
 }
@@ -189,8 +185,10 @@ inline float map_coordinate(float new_max, float current_max, float coord)
 inline float bilinear_interpolate(const Image& img, float x, float y, int c) //const image
 {
     float p1, p2, p3, p4, q1, q2;
-    float x_floor = std::floor(x), x_ceil = std::ceil(x);
-    float y_floor = std::floor(y), y_ceil = std::ceil(y);
+    //float x_floor = std::floor(x), x_ceil = std::ceil(x);
+    //float y_floor = std::floor(y), y_ceil = std::ceil(y);
+    float x_floor = std::floor(x), y_floor = std::floor(y);
+    float x_ceil = x_floor + 1, y_ceil = y_floor + 1;
     p1 = img.get_pixel(x_floor, y_floor, c);
     p2 = img.get_pixel(x_ceil, y_floor, c);
     p3 = img.get_pixel(x_floor, y_ceil, c);
@@ -243,7 +241,6 @@ void draw_point(Image& img, int x, int y)
             if (i < 0 || i >= img.width) continue;
             if (j < 0 || j >= img.height) continue;
             if (std::abs(i-x) + std::abs(j-y) > 1) continue;
-            //std::cout << i << " " << j << "\n";
             if (img.channels == 3) {
                 img.set_pixel(i, j, 0, 1.f);
                 img.set_pixel(i, j, 1, 0.f);
@@ -274,33 +271,3 @@ void draw_line(Image& img, int x1, int y1, int x2, int y2)
     }
 }
 
-Image convolve(const Image& img, const Image& filter, bool preserve)
-{
-    assert(filter.channels == img.channels || filter.channels == 1);
-    int new_c = 1;
-    if (preserve) //preserve number of channels after filtering
-        new_c = img.channels;
-    Image filtered(img.width, img.height, new_c);
-    for (int x = 0; x < img.width; x++) {
-        for (int y = 0; y < img.height; y++) {
-            for (int c = 0; c < img.channels; c++) {
-                float val = 0;
-                for (int i = 0; i < filter.width; i++) {
-                    for (int j = 0; j < filter.height; j++) {
-                        int dx = -filter.width/2 + i;
-                        int dy = -filter.height/2 + j;
-                        int filter_c = (filter.channels == 1) ? 0 : c;
-                        val += img.get_pixel(x+dx, y+dy, c) * filter.get_pixel(i, j, filter_c);
-                    }
-                }
-                if (preserve) {
-                    filtered.set_pixel(x, y, c, val);
-                } else {
-                    float prev_channel_sum = filtered.get_pixel(x, y, 0);
-                    filtered.set_pixel(x, y, 0, prev_channel_sum+val);
-                }
-            }
-        }
-    }
-    return filtered;
-}

@@ -58,7 +58,7 @@ Matrix Matrix::invert()
         }
         // if the matrix is singular return a 0x0 matrix
         if (pivot_row == -1) {
-            std::cout << "matrix is singular\n";
+            //std::cout << "matrix is singular\n";
             return Matrix(0,0);
         }
         //swap row k and pivot row

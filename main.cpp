@@ -12,8 +12,9 @@
 
 int main(int argc, char *argv[])
 {
-    //std::ios_base::sync_with_stdio(false);
-    //std::cin.tie(NULL);
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(NULL);
+
     Image img("imgs/book_rotated.jpg");
     Image img2("imgs/book_in_scene.jpg");
     img = rgb_to_grayscale(img);
@@ -25,7 +26,16 @@ int main(int argc, char *argv[])
     auto kps_b = sift::find_keypoints_and_descriptors(img2);
     auto matches = sift::find_keypoint_matches(kps_a, kps_b);
     std::cout << "matches: " << matches.size() << "\n";
+    
+    //Image blur1 = convolve(img, make_gaussian_filter(5), true);
+    //Image blur2 = gaussian_blur(img, 5);
+    //blur1.clamp();
+    //Image blur1 = img;
+    //blur1.save("blur1.jpg");
+    //blur2.save("blur2.jpg");
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+
     std::cout << "Time difference (sec) = "
               <<  (std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count()) /1000000.0  << "\n";
 	

@@ -1,4 +1,5 @@
 #include <string>
+#include <cassert>
 #ifndef IMAGE_H
 #define IMAGE_H
 
@@ -43,5 +44,5 @@ Image convolve(const Image& img, const Image& filter, bool preserve);
 Image make_gx_filter();
 Image make_gy_filter();
 Image make_gaussian_filter(float sigma, bool normalize = true);
-
+Image gaussian_blur(const Image& img, float sigma);
 #endif

@@ -1,5 +1,6 @@
 #include <vector>
 #include <array>
+#include <optional>
 #include "image.hpp"
 #ifndef SIFT_H
 #define SIFT_H
@@ -13,18 +14,11 @@ struct ScaleSpacePyramid {
     std::vector<std::vector<Image>> octaves; 
 };
 
-//pyramid of difference of gaussian images
-struct DoGPyramid {
-    int num_octaves;
-    int imgs_per_octave;
-    std::vector<std::vector<Image>> octaves;
-};
-
 struct Keypoint {
     // discrete coordinates
     int i;
     int j;
-    int octave;
+    int octave; //change
     int scale; //index of gaussian image inside the octave
 
     // continuous coordinates (interpolated)
@@ -36,21 +30,49 @@ struct Keypoint {
     std::array<int, 128> descriptor;
 };
 
+//*******************************************
+// SIFT algorithm parameters, used by default
+//*******************************************
+
+// digital scale space configuration and keypoint detection
 const int MAX_REFINEMENT_ITERS = 5;
+const float SIGMA_MIN = 0.8;
+const float MIN_PIX_DIST = 0.5;
+const float SIGMA_IN = 0.5;
+const int N_OCT = 4;
+const int N_SPO = 3;
+const float C_DOG = 0.015;
+const float C_EDGE = 10;
+// DOG
 
-ScaleSpacePyramid generate_scale_space_pyramid(const Image& img, float sigma);
-DoGPyramid generate_dog_pyramid(const ScaleSpacePyramid& img_pyramid);
-std::vector<Keypoint> find_scalespace_extrema(const DoGPyramid& dog_pyramid, float contrast_thresh=0.015);
+// computation of the SIFT descriptor
+const int N_BINS = 36;
+const float LAMBDA_ORI = 1.5;
+const int N_HIST = 4;
+const int N_ORI = 8;
+const float LAMBDA_DESC = 6;
 
+// feature matching
+const float THRESH_ABSOLUTE = 250;
+const float THRESH_RELATIVE = 0.6;
+
+ScaleSpacePyramid generate_gaussian_pyramid2(const Image& img, float sigma_min=SIGMA_MIN,
+                                            int num_octaves=N_OCT, int scales_per_octave=N_SPO);
+ScaleSpacePyramid generate_dog_pyramid(const ScaleSpacePyramid& img_pyramid);
+std::vector<Keypoint> find_keypoints(const ScaleSpacePyramid& dog_pyramid, float contrast_thresh=C_DOG);
+
+std::pair<ScaleSpacePyramid, ScaleSpacePyramid> generate_derivative_pyramids(const ScaleSpacePyramid& pyramid);
 ScaleSpacePyramid generate_gx_pyramid(const ScaleSpacePyramid& pyramid);
 ScaleSpacePyramid generate_gy_pyramid(const ScaleSpacePyramid& pyramid);
-std::vector<float> find_keypoint_orientations(Keypoint& kp, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid);
-std::array<int, 128> compute_keypoint_descriptor(Keypoint& kp, float theta, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid);
+std::vector<float> find_keypoint_orientations(Keypoint& kp, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid,
+                                              float lambda_ori=LAMBDA_ORI, float lambda_desc=LAMBDA_DESC);
+std::optional<std::array<int, 128>> compute_keypoint_descriptor(Keypoint& kp, float theta, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid,
+                                                                float lambda_desc=LAMBDA_DESC);
 
 std::vector<Keypoint> find_keypoints_and_descriptors(const Image& img);
 std::vector<std::pair<int, int>> find_keypoint_matches(std::vector<Keypoint>& a, std::vector<Keypoint>& b);
 
-Image draw_matches(const Image& a, const Image& b, std::vector<Keypoint> kps_a, std::vector<Keypoint> kps_b, std::vector<std::pair<int, int>> matches);
+Image draw_matches(const Image& a, const Image& b, std::vector<Keypoint>& kps_a, std::vector<Keypoint>& kps_b, std::vector<std::pair<int, int>> matches);
 
 }
 #endif
