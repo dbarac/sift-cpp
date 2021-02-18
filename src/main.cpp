@@ -12,8 +12,8 @@
 
 int main(int argc, char *argv[])
 {
-    std::ios_base::sync_with_stdio(false);
-    std::cin.tie(NULL);
+    //std::ios_base::sync_with_stdio(false);
+    //std::cin.tie(NULL);
 
     Image img("./../imgs/book_rotated.jpg");
     Image img2("./../imgs/book_in_scene.jpg");
@@ -52,9 +52,9 @@ int main(int argc, char *argv[])
     for (auto& kp : kps_b) {
         draw_point(rgb, kp.x, kp.y);
     }
-    rgb.save("box_scene_keypoints.jpg");
+    rgb.save("./../imgs/box_scene_keypoints.jpg");
 
     Image box_matches = sift::draw_matches(img, img2, kps_a, kps_b, matches);
-    box_matches.save("book_matches.jpg");
+    box_matches.save("./../imgs/book_matches.jpg");
     return 0;
 }

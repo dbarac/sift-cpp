@@ -1,6 +1,7 @@
 #include <vector>
 #include <array>
 #include <optional>
+#include <cstdint>
 #include "image.hpp"
 #ifndef SIFT_H
 #define SIFT_H
@@ -27,7 +28,7 @@ struct Keypoint {
     float sigma;
     float extremum_val; //value of interpolated DoG extremum
     
-    std::array<int, 128> descriptor;
+    std::array<uint8_t, 128> descriptor;
 };
 
 //*******************************************
@@ -56,18 +57,16 @@ const float LAMBDA_DESC = 6;
 const float THRESH_ABSOLUTE = 250;
 const float THRESH_RELATIVE = 0.6;
 
-ScaleSpacePyramid generate_gaussian_pyramid2(const Image& img, float sigma_min=SIGMA_MIN,
+ScaleSpacePyramid generate_gaussian_pyramid(const Image& img, float sigma_min=SIGMA_MIN,
                                             int num_octaves=N_OCT, int scales_per_octave=N_SPO);
 ScaleSpacePyramid generate_dog_pyramid(const ScaleSpacePyramid& img_pyramid);
 std::vector<Keypoint> find_keypoints(const ScaleSpacePyramid& dog_pyramid, float contrast_thresh=C_DOG);
 
-std::pair<ScaleSpacePyramid, ScaleSpacePyramid> generate_derivative_pyramids(const ScaleSpacePyramid& pyramid);
-ScaleSpacePyramid generate_gx_pyramid(const ScaleSpacePyramid& pyramid);
-ScaleSpacePyramid generate_gy_pyramid(const ScaleSpacePyramid& pyramid);
-std::vector<float> find_keypoint_orientations(Keypoint& kp, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid,
+ScaleSpacePyramid generate_gradient_pyramid(const ScaleSpacePyramid& pyramid);
+std::vector<float> find_keypoint_orientations(Keypoint& kp, const ScaleSpacePyramid& grad_pyramid,
                                               float lambda_ori=LAMBDA_ORI, float lambda_desc=LAMBDA_DESC);
-std::optional<std::array<int, 128>> compute_keypoint_descriptor(Keypoint& kp, float theta, const ScaleSpacePyramid& gx_pyramid, const ScaleSpacePyramid& gy_pyramid,
-                                                                float lambda_desc=LAMBDA_DESC);
+void compute_keypoint_descriptor(Keypoint& kp, float theta, const ScaleSpacePyramid& grad_pyramid,
+                                 float lambda_desc=LAMBDA_DESC);
 
 std::vector<Keypoint> find_keypoints_and_descriptors(const Image& img);
 std::vector<std::pair<int, int>> find_keypoint_matches(std::vector<Keypoint>& a, std::vector<Keypoint>& b);

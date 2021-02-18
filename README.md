@@ -38,6 +38,7 @@ Build:
 $ mkdir build/ && cd build && cmake .. && make
 ```
 The executable will be in project_root/bin/.
+
 Run:
 ```bash
 $ cd bin/ && ./main
