@@ -8,15 +8,9 @@ set_target_properties(stb_image PROPERTIES LINKER_LANGUAGE CXX)
 add_library(img STATIC
             image.hpp
             image.cpp
-            filter_image.cpp
 )
 
 target_link_libraries(img PRIVATE stb_image)
-
-add_library(matrix STATIC
-            matrix.cpp
-            matrix.hpp
-)
 
 add_library(sift STATIC
             sift.cpp
@@ -25,15 +19,12 @@ add_library(sift STATIC
 
 target_link_libraries(sift PRIVATE
                       img
-                      matrix
 )
 
 add_executable(main main.cpp)
 
 target_link_libraries(main PRIVATE
-                      stb_image
                       img
-                      matrix
                       sift
 )
 

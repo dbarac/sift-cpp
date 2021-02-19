@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include "sift.hpp"
 #include <chrono>
-#include "matrix.hpp"
 
 int main(int argc, char *argv[])
 {

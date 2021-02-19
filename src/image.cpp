@@ -1,8 +1,8 @@
 #include <cmath>
 #include <iostream>
 #include <cassert>
-#include "image.hpp"
 
+#include "image.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -41,6 +41,15 @@ Image::Image(int w, int h, int c)
     channels = c;
     size = width * height * channels;
     data = new float[w*h*c]();
+}
+
+Image::Image()
+    :width {0},
+     height {0},
+     channels {0},
+     size {0},
+     data {nullptr} 
+{
 }
 
 Image::~Image()
@@ -155,10 +164,18 @@ void Image::clamp()
     }
 }
 
+//map coordinate from 0-current_max range to 0-new_max range
+inline float map_coordinate(float new_max, float current_max, float coord)
+{
+    float a = new_max / current_max;
+    float b = -0.5 + a*0.5;
+    return a*coord + b;
+}
+
 Image Image::resize(int new_w, int new_h, Interpolation interp) const
 {
     Image resized(new_w, new_h, this->channels);
-    float value;
+    float value = 0;
     for (int x = 0; x < new_w; x++) {
         for (int y = 0; y < new_h; y++) {
             for (int c = 0; c < resized.channels; c++) {
@@ -175,18 +192,9 @@ Image Image::resize(int new_w, int new_h, Interpolation interp) const
     return resized;
 }
 
-inline float map_coordinate(float new_max, float current_max, float coord)
-{
-    float a = new_max / current_max;
-    float b = -0.5 + a*0.5;
-    return a*coord + b;
-}
-
-inline float bilinear_interpolate(const Image& img, float x, float y, int c) //const image
+inline float bilinear_interpolate(const Image& img, float x, float y, int c)
 {
     float p1, p2, p3, p4, q1, q2;
-    //float x_floor = std::floor(x), x_ceil = std::ceil(x);
-    //float y_floor = std::floor(y), y_ceil = std::ceil(y);
     float x_floor = std::floor(x), y_floor = std::floor(y);
     float x_ceil = x_floor + 1, y_ceil = y_floor + 1;
     p1 = img.get_pixel(x_floor, y_floor, c);
@@ -232,6 +240,53 @@ Image grayscale_to_rgb(const Image& img)
         }
     }
     return rgb;
+}
+
+// separable 2D gaussian blur for 1 channel image
+Image gaussian_blur(const Image& img, float sigma)
+{
+    assert(img.channels == 1);
+
+    int size = std::ceil(6 * sigma);
+    if (size % 2 == 0)
+        size++;
+    int center = size / 2;
+    Image kernel(size, 1, 1);
+    float sum = 0;
+    for (int k = -size/2; k <= size/2; k++) {
+        float val = std::exp(-(k*k) / (2*sigma*sigma));
+        kernel.set_pixel(center+k, 0, 0, val);
+        sum += val;
+    }
+    for (int k = 0; k < size; k++)
+        kernel.data[k] /= sum;
+
+    Image tmp(img.width, img.height, 1);
+    Image filtered(img.width, img.height, 1);
+
+    // convolve vertical
+    for (int x = 0; x < img.width; x++) {
+        for (int y = 0; y < img.height; y++) {
+            float sum = 0;
+            for (int k = 0; k < size; k++) {
+                int dy = -center + k;
+                sum += img.get_pixel(x, y+dy, 0) * kernel.data[k];
+            }
+            tmp.set_pixel(x, y, 0, sum);
+        }
+    }
+    // convolve horizontal
+    for (int x = 0; x < img.width; x++) {
+        for (int y = 0; y < img.height; y++) {
+            float sum = 0;
+            for (int k = 0; k < size; k++) {
+                int dx = -center + k;
+                sum += tmp.get_pixel(x+dx, y, 0) * kernel.data[k];
+            }
+            filtered.set_pixel(x, y, 0, sum);
+        }
+    }
+    return filtered;
 }
 
 void draw_point(Image& img, int x, int y)
