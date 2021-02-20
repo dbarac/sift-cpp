@@ -351,30 +351,30 @@ std::vector<float> find_keypoint_orientations(Keypoint& kp,
 }
 
 void update_histograms(float hist[N_HIST][N_HIST][N_ORI], float x, float y,
-                       float contrib, float theta_mn)
+                       float contrib, float theta_mn, float lambda_desc)
 {
-    const int n_hist = 4, n_ori = 8;
-    const float lambda_desc = 6;
+    //const int n_hist = 4, n_ori = 8;
+    //const float lambda_desc = 6;
 
     float x_i, y_j;
-    for (int i = 1; i <= n_hist; i++) {
-        x_i = (i-(1+(float)n_hist)/2) * 2*lambda_desc/n_hist;
-        if (std::abs(x_i-x) > 2*lambda_desc/n_hist)
+    for (int i = 1; i <= N_HIST; i++) {
+        x_i = (i-(1+(float)N_HIST)/2) * 2*lambda_desc/N_HIST;
+        if (std::abs(x_i-x) > 2*lambda_desc/N_HIST)
             continue;
-        for (int j = 1; j <= n_hist; j++) {
-            y_j = (j-(1+(float)n_hist)/2) * 2*lambda_desc/n_hist;
-            if (std::abs(y_j-y) > 2*lambda_desc/n_hist)
+        for (int j = 1; j <= N_HIST; j++) {
+            y_j = (j-(1+(float)N_HIST)/2) * 2*lambda_desc/N_HIST;
+            if (std::abs(y_j-y) > 2*lambda_desc/N_HIST)
                 continue;
             
-            float hist_weight = (1 - n_hist*0.5/lambda_desc*std::abs(x_i-x))
-                               *(1 - n_hist*0.5/lambda_desc*std::abs(y_j-y));
+            float hist_weight = (1 - N_HIST*0.5/lambda_desc*std::abs(x_i-x))
+                               *(1 - N_HIST*0.5/lambda_desc*std::abs(y_j-y));
 
-            for (int k = 1; k <= n_ori; k++) {
-                float theta_k = 2*M_PI*(k-1)/n_ori;
+            for (int k = 1; k <= N_ORI; k++) {
+                float theta_k = 2*M_PI*(k-1)/N_ORI;
                 float theta_diff = std::fmod(theta_k-theta_mn+2*M_PI, 2*M_PI);
-                if (std::abs(theta_diff) >= 2*M_PI/n_ori)
+                if (std::abs(theta_diff) >= 2*M_PI/N_ORI)
                     continue;
-                float bin_weight = 1 - n_ori*0.5/M_PI*std::abs(theta_diff);
+                float bin_weight = 1 - N_ORI*0.5/M_PI*std::abs(theta_diff);
                 hist[i-1][j-1][k-1] += hist_weight*bin_weight*contrib;
             }
         }
@@ -443,7 +443,7 @@ void compute_keypoint_descriptor(Keypoint& kp, float theta,
                                     /(2*patch_sigma*patch_sigma));
             float contribution = weight * grad_norm;
 
-            update_histograms(histograms, x, y, contribution, theta_mn);
+            update_histograms(histograms, x, y, contribution, theta_mn, lambda_desc);
         }
     }
 

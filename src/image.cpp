@@ -1,6 +1,7 @@
 #include <cmath>
 #include <iostream>
 #include <cassert>
+#include <utility>
 
 #include "image.hpp"
 #define STB_IMAGE_IMPLEMENTATION
@@ -19,13 +20,13 @@ Image::Image(std::string file_path)
     }
 
     size = width * height * channels;
-    this->data = new float[size]; 
+    data = new float[size]; 
     for (int x = 0; x < width; x++) {
         for (int y = 0; y < height; y++) {
             for (int c = 0; c < channels; c++) {
                 int src_idx = y*width*channels + x*channels + c;
                 int dst_idx = c*height*width + y*width + x;
-                this->data[dst_idx] = img_data[src_idx] / 255.;
+                data[dst_idx] = img_data[src_idx] / 255.;
             }
         }
     }
@@ -35,12 +36,12 @@ Image::Image(std::string file_path)
 }
 
 Image::Image(int w, int h, int c)
+    :width {w},
+     height {h},
+     channels {c},
+     size {w*h*c},
+     data {new float[w*h*c]()}
 {
-    width = w;
-    height = h;
-    channels = c;
-    size = width * height * channels;
-    data = new float[w*h*c]();
 }
 
 Image::Image()
@@ -165,14 +166,14 @@ void Image::clamp()
 }
 
 //map coordinate from 0-current_max range to 0-new_max range
-inline float map_coordinate(float new_max, float current_max, float coord)
+float map_coordinate(float new_max, float current_max, float coord)
 {
     float a = new_max / current_max;
     float b = -0.5 + a*0.5;
     return a*coord + b;
 }
 
-Image Image::resize(int new_w, int new_h, Interpolation interp) const
+Image Image::resize(int new_w, int new_h, Interpolation method) const
 {
     Image resized(new_w, new_h, this->channels);
     float value = 0;
@@ -181,9 +182,9 @@ Image Image::resize(int new_w, int new_h, Interpolation interp) const
             for (int c = 0; c < resized.channels; c++) {
                 float old_x = map_coordinate(this->width, new_w, x);
                 float old_y = map_coordinate(this->height, new_h, y);
-                if (interp == Interpolation::BILINEAR)
+                if (method == Interpolation::BILINEAR)
                     value = bilinear_interpolate(*this, old_x, old_y, c);
-                else if (interp == Interpolation::NEAREST)
+                else if (method == Interpolation::NEAREST)
                     value = nn_interpolate(*this, old_x, old_y, c);
                 resized.set_pixel(x, y, c, value);
             }
@@ -192,7 +193,7 @@ Image Image::resize(int new_w, int new_h, Interpolation interp) const
     return resized;
 }
 
-inline float bilinear_interpolate(const Image& img, float x, float y, int c)
+float bilinear_interpolate(const Image& img, float x, float y, int c)
 {
     float p1, p2, p3, p4, q1, q2;
     float x_floor = std::floor(x), y_floor = std::floor(y);
@@ -289,13 +290,13 @@ Image gaussian_blur(const Image& img, float sigma)
     return filtered;
 }
 
-void draw_point(Image& img, int x, int y)
+void draw_point(Image& img, int x, int y, int size)
 {
-    for (int i = x-3; i <= x+3; i++) {
-        for (int j = y-3; j <= y+3; j++) {
+    for (int i = x-size/2; i <= x+size/2; i++) {
+        for (int j = y-size/2; j <= y+size/2; j++) {
             if (i < 0 || i >= img.width) continue;
             if (j < 0 || j >= img.height) continue;
-            if (std::abs(i-x) + std::abs(j-y) > 1) continue;
+            if (std::abs(i-x) + std::abs(j-y) > size/2) continue;
             if (img.channels == 3) {
                 img.set_pixel(i, j, 0, 1.f);
                 img.set_pixel(i, j, 1, 0.f);
@@ -310,19 +311,19 @@ void draw_point(Image& img, int x, int y)
 void draw_line(Image& img, int x1, int y1, int x2, int y2)
 {
     if (x2 < x1) {
-        int tmp = x1;
-        x1 = x2;
-        x2 = tmp;
-        tmp = y1;
-        y1 = y2;
-        y2 = tmp;
+        std::swap(x1, x2);
+        std::swap(y1, y2);
     }
     int dx = x2 - x1, dy = y2 - y1;
     for (int x = x1; x < x2; x++) {
         int y = y1 + dy*(x-x1)/dx;
-        img.set_pixel(x, y, 0, 0.f);
-        img.set_pixel(x, y, 1, 1.f);
-        img.set_pixel(x, y, 2, 0.f);
+        if (img.channels == 3) {
+            img.set_pixel(x, y, 0, 0.f);
+            img.set_pixel(x, y, 1, 1.f);
+            img.set_pixel(x, y, 2, 0.f);
+        } else {
+            img.set_pixel(x, y, 0, 1.f);
+        }
     }
 }
 
