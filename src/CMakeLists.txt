@@ -20,12 +20,3 @@ add_library(sift STATIC
 target_link_libraries(sift PRIVATE
                       img
 )
-
-add_executable(main main.cpp)
-
-target_link_libraries(main PRIVATE
-                      img
-                      sift
-)
-
-SET_TARGET_PROPERTIES(main PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)

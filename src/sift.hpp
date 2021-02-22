@@ -41,7 +41,7 @@ const int MAX_REFINEMENT_ITERS = 5;
 const float SIGMA_MIN = 0.8;
 const float MIN_PIX_DIST = 0.5;
 const float SIGMA_IN = 0.5;
-const int N_OCT = 4;
+const int N_OCT = 8;
 const int N_SPO = 3;
 const float C_DOG = 0.015;
 const float C_EDGE = 10;
@@ -54,8 +54,8 @@ const int N_ORI = 8;
 const float LAMBDA_DESC = 6;
 
 // feature matching
-const float THRESH_ABSOLUTE = 30000;//250;
-const float THRESH_RELATIVE = 0.7;//0.6;
+const float THRESH_ABSOLUTE = 350;
+const float THRESH_RELATIVE = 0.7;
 
 ScaleSpacePyramid generate_gaussian_pyramid(const Image& img, float sigma_min=SIGMA_MIN,
                                             int num_octaves=N_OCT, int scales_per_octave=N_SPO);
