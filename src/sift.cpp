@@ -239,7 +239,6 @@ std::vector<Keypoint> find_keypoints(const ScaleSpacePyramid& dog_pyramid, float
             }
         }
     }
-    std::cout << "num keypoints: " << keypoints.size() << "\n";
     return keypoints;
 }
 
@@ -432,7 +431,6 @@ void compute_keypoint_descriptor(Keypoint& kp, float theta,
 
             float gx = img_grad.get_pixel(m, n, 0), gy = img_grad.get_pixel(m, n, 1);
             float theta_mn = std::fmod(std::atan2(gy, gx)-theta+4*M_PI, 2*M_PI);
-            //std::cout << theta_mn << "\n";
             float grad_norm = std::sqrt(gx*gx + gy*gy);
             float weight = std::exp(-(std::pow(m*pix_dist-kp.x, 2)+std::pow(n*pix_dist-kp.y, 2))
                                     /(2*patch_sigma*patch_sigma));
@@ -471,7 +469,6 @@ std::vector<Keypoint> find_keypoints_and_descriptors(const Image& img, float sig
             kps.push_back(kp);
         }
     }
-    //std::cout << "kpslen: " << kps.size() << " " << keypoints.size() << "\n";
     return kps;
 }
 

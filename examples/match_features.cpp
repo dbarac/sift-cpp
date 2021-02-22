@@ -14,8 +14,8 @@ int main(int argc, char *argv[])
         return 0;
     }
     Image a(argv[1]), b(argv[2]);
-    a = rgb_to_grayscale(a);
-    b = rgb_to_grayscale(b);
+    a = a.channels == 1 ? a : rgb_to_grayscale(a);
+    b = b.channels == 1 ? b : rgb_to_grayscale(b);
 
     std::vector<sift::Keypoint> kps_a = sift::find_keypoints_and_descriptors(a);
     std::vector<sift::Keypoint> kps_b = sift::find_keypoints_and_descriptors(b);
