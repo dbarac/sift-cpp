@@ -44,6 +44,7 @@ Find image keypoints, draw them and save the result:
 $ cd bin/ && ./find_keypoints ../imgs/book_rotated.jpg
 ```
 Input images can be .jpg or .png. Result image is saved as result.jpg
+
 ![Keypoints result](./imgs/book_keypoints.jpg)
 
 Find keypoints in two images and match them, draw matches and save the result:
@@ -51,7 +52,6 @@ Find keypoints in two images and match them, draw matches and save the result:
 $ cd bin/ && ./match_features ../imgs/book_rotated.jpg ../imgs/book_in_scene.jpg
 ```
 Result image is saved as result.jpg
-![Keypoints result](./imgs/book_keypoints.jpg)
 
 ## Useful links
 
