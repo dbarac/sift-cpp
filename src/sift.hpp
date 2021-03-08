@@ -20,7 +20,7 @@ struct Keypoint {
     // discrete coordinates
     int i;
     int j;
-    int octave; //change
+    int octave;
     int scale; //index of gaussian image inside the octave
 
     // continuous coordinates (interpolated)

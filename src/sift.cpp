@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <array>
+#include <tuple>
 #include <cassert>
 
 #include "sift.hpp"
@@ -36,9 +37,9 @@ ScaleSpacePyramid generate_gaussian_pyramid(const Image& img, float sigma_min,
     // create a scale space pyramid of gaussian images
     // images in each octave are half the size of images in the previous one
     ScaleSpacePyramid pyramid = {
-        .num_octaves = num_octaves,
-        .imgs_per_octave = imgs_per_octave,
-        .octaves = std::vector<std::vector<Image>>(num_octaves)
+        num_octaves,
+        imgs_per_octave,
+        std::vector<std::vector<Image>>(num_octaves)
     };
     for (int i = 0; i < num_octaves; i++) {
         pyramid.octaves[i].reserve(imgs_per_octave);
@@ -59,9 +60,9 @@ ScaleSpacePyramid generate_gaussian_pyramid(const Image& img, float sigma_min,
 ScaleSpacePyramid generate_dog_pyramid(const ScaleSpacePyramid& img_pyramid)
 {
     ScaleSpacePyramid dog_pyramid = {
-        .num_octaves = img_pyramid.num_octaves,
-        .imgs_per_octave = img_pyramid.imgs_per_octave - 1,
-        .octaves = std::vector<std::vector<Image>>(img_pyramid.num_octaves)
+        img_pyramid.num_octaves,
+        img_pyramid.imgs_per_octave - 1,
+        std::vector<std::vector<Image>>(img_pyramid.num_octaves)
     };
     for (int i = 0; i < dog_pyramid.num_octaves; i++) {
         dog_pyramid.octaves[i].reserve(dog_pyramid.imgs_per_octave);
@@ -403,7 +404,7 @@ void compute_keypoint_descriptor(Keypoint& kp, float theta,
                                  const ScaleSpacePyramid& grad_pyramid,
                                  float lambda_desc)
 {
-    const float pix_dist = MIN_PIX_DIST * std::pow(2, kp.octave);
+    float pix_dist = MIN_PIX_DIST * std::pow(2, kp.octave);
     const Image& img_grad = grad_pyramid.octaves[kp.octave][kp.scale];
     float histograms[N_HIST][N_HIST][N_ORI] = {0};
 

@@ -72,15 +72,17 @@ Image::Image(const Image& other)
 
 Image& Image::operator=(const Image& other)
 {
-    delete[] data;
-    //std::cout << "copy assignment\n";
-    width = other.width;
-    height = other.height;
-    channels = other.channels;
-    size = other.size;
-    data = new float[other.size];
-    for (int i = 0; i < other.size; i++)
-        data[i] = other.data[i];
+    if (this != &other) {
+        delete[] data;
+        //std::cout << "copy assignment\n";
+        width = other.width;
+        height = other.height;
+        channels = other.channels;
+        size = other.size;
+        data = new float[other.size];
+        for (int i = 0; i < other.size; i++)
+            data[i] = other.data[i];
+    }
     return *this;
 }
 
