@@ -20,3 +20,19 @@ add_library(sift STATIC
 target_link_libraries(sift PRIVATE
                       img
 )
+
+add_library(sift_omp STATIC
+            sift_omp.cpp
+            sift_omp.hpp
+)
+
+target_link_libraries(sift_omp PRIVATE
+                      img
+)
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(sift_omp PUBLIC
+                          OpenMP::OpenMP_CXX
+    )
+endif()
