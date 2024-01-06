@@ -1,0 +1,22 @@
+Sequential:
+    Book:
+        Found 151 feature matches. Output image is saved as imgs/results/book_result.jpg
+        Spend: 3713289 microseconds on finding keypoints and matching them.
+    Rotated_book:
+        Found 135 feature matches. Output image is saved as imgs/results/book_rotated_result.jpg
+        Spend: 3613840 microseconds on finding keypoints and matching them.
+    Balloon: 
+        Found 223 feature matches. Output image is saved as result.jpg
+        Spend: 124231478 microseconds on finding keypoints and matching
+    Arc de Triomphe_small:
+        Found 269 feature matches. Output image is saved as imgs/results/Arc de Triomphe_small.jpg
+        Spend: 147007536 microseconds on finding keypoints and matching them.
+    Arc de Triomphe_large:
+        Found 8388 feature matches. Output image is saved as imgs/results/Arc de Triomphe_large.jpg
+        Spend: 240873116 microseconds on finding keypoints and matching them.
+    Eiffeltower_anthony_small:
+        Found 127 feature matches. Output image is saved as imgs/results/Eiffeltower_anthony_small_result.jpg
+        Spend: 302430707 microseconds on finding keypoints and matching them.
+    Eiffeltower_anthony_large:
+        Found 19355 feature matches. Output image is saved as imgs/results/Eiffeltower_anthony_large_result.jpg
+        Spend: 480667607 microseconds on finding keypoints and matching them.
