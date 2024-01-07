@@ -16,5 +16,15 @@ target_link_libraries(match_features PRIVATE
                       sift
 )
 
+add_executable(match_features_omp match_features_omp.cpp)
+
+target_include_directories(match_features_omp PRIVATE ../src)
+
+target_link_libraries(match_features_omp PRIVATE
+                      img
+                      sift_omp
+)
+
 SET_TARGET_PROPERTIES(find_keypoints PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 SET_TARGET_PROPERTIES(match_features PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+SET_TARGET_PROPERTIES(match_features_omp PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)

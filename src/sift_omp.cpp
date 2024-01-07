@@ -22,7 +22,7 @@ ScaleSpacePyramid generate_gaussian_pyramid(const Image& img, float sigma_min,
     float base_sigma = sigma_min / MIN_PIX_DIST;
     Image base_img = img.resize(img.width*2, img.height*2, Interpolation::BILINEAR);
     float sigma_diff = std::sqrt(base_sigma*base_sigma - 1.0f);
-    base_img = gaussian_blur(base_img, sigma_diff);
+    base_img = gaussian_blur(base_img, sigma_diff); // can be parallelized
 
     int imgs_per_octave = scales_per_octave + 3;
 
@@ -32,7 +32,7 @@ ScaleSpacePyramid generate_gaussian_pyramid(const Image& img, float sigma_min,
     for (int i = 1; i < imgs_per_octave; i++) {
         float sigma_prev = base_sigma * std::pow(k, i-1);
         float sigma_total = k * sigma_prev;
-        sigma_vals.push_back(std::sqrt(sigma_total*sigma_total - sigma_prev*sigma_prev));
+        sigma_vals.push_back(std::sqrt(sigma_total*sigma_total - sigma_prev*sigma_prev));   // does order matter?
     }
 
     // create a scale space pyramid of gaussian images
@@ -44,10 +44,10 @@ ScaleSpacePyramid generate_gaussian_pyramid(const Image& img, float sigma_min,
     };
     for (int i = 0; i < num_octaves; i++) {
         pyramid.octaves[i].reserve(imgs_per_octave);
-        pyramid.octaves[i].push_back(std::move(base_img));
+        pyramid.octaves[i].push_back(std::move(base_img));  // base_img has dependency?
         for (int j = 1; j < sigma_vals.size(); j++) {
             const Image& prev_img = pyramid.octaves[i].back();
-            pyramid.octaves[i].push_back(gaussian_blur(prev_img, sigma_vals[j]));
+            pyramid.octaves[i].push_back(gaussian_blur(prev_img, sigma_vals[j]));   // does order matter?
         }
         // prepare base image for next octave
         const Image& next_base_img = pyramid.octaves[i][imgs_per_octave-3];
@@ -69,10 +69,11 @@ ScaleSpacePyramid generate_dog_pyramid(const ScaleSpacePyramid& img_pyramid)
         dog_pyramid.octaves[i].reserve(dog_pyramid.imgs_per_octave);
         for (int j = 1; j < img_pyramid.imgs_per_octave; j++) {
             Image diff = img_pyramid.octaves[i][j];
-            for (int pix_idx = 0; pix_idx < diff.size; pix_idx++) {
+            #pragma omp parallel for schedule(static)
+            for (int pix_idx = 0; pix_idx < diff.size; pix_idx++) { // can be parallelized
                 diff.data[pix_idx] -= img_pyramid.octaves[i][j-1].data[pix_idx];
             }
-            dog_pyramid.octaves[i].push_back(diff);
+            dog_pyramid.octaves[i].push_back(diff); // does order matter?
         }
     }
     return dog_pyramid;
@@ -189,7 +190,7 @@ void find_input_img_coords(Keypoint& kp, float offset_s, float offset_x, float o
     kp.y = min_pix_dist * std::pow(2, kp.octave) * (offset_y+kp.j);
 }
 
-// Can be parallelized ?
+// Can be parallelized? -> maybe not?
 bool refine_or_discard_keypoint(Keypoint& kp, const std::vector<Image>& octave,
                                 float contrast_thresh, float edge_thresh)
 {
@@ -202,7 +203,7 @@ bool refine_or_discard_keypoint(Keypoint& kp, const std::vector<Image>& octave,
                                      std::abs(offset_x),
                                      std::abs(offset_y)});
         // find nearest discrete coordinates
-        kp.scale += std::round(offset_s);
+        kp.scale += std::round(offset_s);   // kp has dependency?
         kp.i += std::round(offset_x);
         kp.j += std::round(offset_y);
         if (kp.scale >= octave.size()-1 || kp.scale < 1)
@@ -227,6 +228,7 @@ std::vector<Keypoint> find_keypoints(const ScaleSpacePyramid& dog_pyramid, float
         const std::vector<Image>& octave = dog_pyramid.octaves[i];
         for (int j = 1; j < dog_pyramid.imgs_per_octave-1; j++) {
             const Image& img = octave[j];
+            #pragma omp parallel for schedule(static) collapse(2)
             for (int x = 1; x < img.width-1; x++) {
                 for (int y = 1; y < img.height-1; y++) {
                     if (std::abs(img.get_pixel(x, y, 0)) < 0.8*contrast_thresh) {
@@ -237,6 +239,7 @@ std::vector<Keypoint> find_keypoints(const ScaleSpacePyramid& dog_pyramid, float
                         bool kp_is_valid = refine_or_discard_keypoint(kp, octave, contrast_thresh,
                                                                       edge_thresh);
                         if (kp_is_valid) {
+                            #pragma omp critical
                             keypoints.push_back(kp);
                         }
                     }
@@ -263,6 +266,7 @@ ScaleSpacePyramid generate_gradient_pyramid(const ScaleSpacePyramid& pyramid)
         for (int j = 0; j < pyramid.imgs_per_octave; j++) {
             Image grad(width, height, 2);
             float gx, gy;
+            #pragma omp parallel for schedule(static) private(gx, gy)
             for (int x = 1; x < grad.width-1; x++) {
                 for (int y = 1; y < grad.height-1; y++) {
                     gx = (pyramid.octaves[i][j].get_pixel(x+1, y, 0)
@@ -273,7 +277,7 @@ ScaleSpacePyramid generate_gradient_pyramid(const ScaleSpacePyramid& pyramid)
                     grad.set_pixel(x, y, 1, gy);
                 }
             }
-            grad_pyramid.octaves[i].push_back(grad);
+            grad_pyramid.octaves[i].push_back(grad);    // does order matter?
         }
     }
     return grad_pyramid;
@@ -283,7 +287,8 @@ ScaleSpacePyramid generate_gradient_pyramid(const ScaleSpacePyramid& pyramid)
 void smooth_histogram(float hist[N_BINS])
 {
     float tmp_hist[N_BINS];
-    for (int i = 0; i < 6; i++) {
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < 6; i++) {   // can be parallelized
         for (int j = 0; j < N_BINS; j++) {
             int prev_idx = (j-1+N_BINS)%N_BINS;
             int next_idx = (j+1)%N_BINS;
@@ -320,7 +325,8 @@ std::vector<float> find_keypoint_orientations(Keypoint& kp,
     int y_end = std::round((kp.y + patch_radius)/pix_dist);
 
     // accumulate gradients in orientation histogram
-    for (int x = x_start; x <= x_end; x++) {
+    // #pragma omp parallel for schedule(static) private(gx, gy, grad_norm, weight, theta, bin)
+    for (int x = x_start; x <= x_end; x++) {    // can be parallelized
         for (int y = y_start; y <= y_end; y++) {
             gx = img_grad.get_pixel(x, y, 0);
             gy = img_grad.get_pixel(x, y, 1);
@@ -355,11 +361,12 @@ std::vector<float> find_keypoint_orientations(Keypoint& kp,
     return orientations;
 }
 
+// histogram accumulation for each surrounding pixel
 void update_histograms(float hist[N_HIST][N_HIST][N_ORI], float x, float y,
                        float contrib, float theta_mn, float lambda_desc)
 {
     float x_i, y_j;
-    for (int i = 1; i <= N_HIST; i++) {
+    for (int i = 1; i <= N_HIST; i++) { // can be parallelized, but low cost? total 128 values in hist
         x_i = (i-(1+(float)N_HIST)/2) * 2*lambda_desc/N_HIST;
         if (std::abs(x_i-x) > 2*lambda_desc/N_HIST)
             continue;
@@ -377,7 +384,8 @@ void update_histograms(float hist[N_HIST][N_HIST][N_ORI], float x, float y,
                 if (std::abs(theta_diff) >= 2*M_PI/N_ORI)
                     continue;
                 float bin_weight = 1 - N_ORI*0.5/M_PI*std::abs(theta_diff);
-                hist[i-1][j-1][k-1] += hist_weight*bin_weight*contrib;
+                #pragma omp atomic
+                hist[i-1][j-1][k-1] += hist_weight*bin_weight*contrib;  // need to add lock if parallelized for each surrounding pixel
             }
         }
     }
@@ -405,6 +413,7 @@ void hists_to_vec(float histograms[N_HIST][N_HIST][N_ORI], std::array<uint8_t, 1
     }
 }
 
+// per keypoint
 void compute_keypoint_descriptor(Keypoint& kp, float theta,
                                  const ScaleSpacePyramid& grad_pyramid,
                                  float lambda_desc)
@@ -423,7 +432,8 @@ void compute_keypoint_descriptor(Keypoint& kp, float theta,
     float cos_t = std::cos(theta), sin_t = std::sin(theta);
     float patch_sigma = lambda_desc * kp.sigma;
     //accumulate samples into histograms
-    for (int m = x_start; m <= x_end; m++) {
+    #pragma omp parallel for schedule(static) shared(histograms)
+    for (int m = x_start; m <= x_end; m++) {    // can be parallelized, but need to add lock to histograms when updating
         for (int n = y_start; n <= y_end; n++) {
             // find normalized coords w.r.t. kp position and reference orientation
             float x = ((m*pix_dist - kp.x)*cos_t
@@ -442,7 +452,7 @@ void compute_keypoint_descriptor(Keypoint& kp, float theta,
                                     /(2*patch_sigma*patch_sigma));
             float contribution = weight * grad_norm;
 
-            update_histograms(histograms, x, y, contribution, theta_mn, lambda_desc);
+            update_histograms(histograms, x, y, contribution, theta_mn, lambda_desc);   // one of the surrouding pixels
         }
     }
 
@@ -466,12 +476,14 @@ std::vector<Keypoint> find_keypoints_and_descriptors(const Image& img, float sig
     
     std::vector<Keypoint> kps;
 
-    for (Keypoint& kp_tmp : tmp_kps) {
+    #pragma omp parallel for schedule(static) shared(kps)
+    for (Keypoint& kp_tmp : tmp_kps) {  // can be parallelized
         std::vector<float> orientations = find_keypoint_orientations(kp_tmp, grad_pyramid,
                                                                      lambda_ori, lambda_desc);
         for (float theta : orientations) {
             Keypoint kp = kp_tmp;
             compute_keypoint_descriptor(kp, theta, grad_pyramid, lambda_desc);
+            #pragma omp critical
             kps.push_back(kp);
         }
     }
@@ -497,7 +509,7 @@ std::vector<std::pair<int, int>> find_keypoint_matches(std::vector<Keypoint>& a,
 
     std::vector<std::pair<int, int>> matches;
 
-    for (int i = 0; i < a.size(); i++) {
+    for (int i = 0; i < a.size(); i++) {    // can be parallelied
         // find two nearest neighbours in b for current keypoint from a
         int nn1_idx = -1;
         float nn1_dist = 100000000, nn2_dist = 100000000;

@@ -268,7 +268,8 @@ Image gaussian_blur(const Image& img, float sigma)
     Image filtered(img.width, img.height, 1);
 
     // convolve vertical
-    for (int x = 0; x < img.width; x++) {
+    // #pragma omp parallel for schedule(static) collapse(2)
+    for (int x = 0; x < img.width; x++) {   // can be parallelized
         for (int y = 0; y < img.height; y++) {
             float sum = 0;
             for (int k = 0; k < size; k++) {
@@ -279,6 +280,7 @@ Image gaussian_blur(const Image& img, float sigma)
         }
     }
     // convolve horizontal
+    // #pragma omp parallel for schedule(static) collapse(2)
     for (int x = 0; x < img.width; x++) {
         for (int y = 0; y < img.height; y++) {
             float sum = 0;
